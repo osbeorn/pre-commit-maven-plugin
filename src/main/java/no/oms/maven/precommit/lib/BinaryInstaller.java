@@ -37,34 +37,35 @@ public class BinaryInstaller {
         try {
             logger.info("Installing pre-commit version {}", version);
 
-            String downloadUrl = downloadRoot + version;
-            String extension = "tar.gz";
-            String fileEnding = "/" + version + "." + extension;
-            downloadUrl += fileEnding;
-
-            CacheDescriptor cacheDescriptor = new CacheDescriptor("pre-commit", version, extension);
-
-            File archive = config.getCacheResolver().resolve(cacheDescriptor);
-
-            downloadFileIfMissing(downloadUrl, archive);
+//            String downloadUrl = downloadRoot + version;
+//            String extension = "tar.gz";
+//            String fileEnding = "/" + version + "." + extension;
+//            downloadUrl += fileEnding;
+//
+//            CacheDescriptor cacheDescriptor = new CacheDescriptor("pre-commit", version, extension);
+//
+//            File archive = config.getCacheResolver().resolve(cacheDescriptor);
+//
+//            downloadFileIfMissing(downloadUrl, archive);
 
             File installDirectory = getInstallDirectory();
-            extractFile(archive, installDirectory);
-
-            File setupFile = new File(installDirectory + "/setup.py");
-            if (!setupFile.exists()) {
-                throw new InstallationException("Could not find setup.py in extracted archive");
-            }
+//            extractFile(archive, installDirectory);
+//
+//            File setupFile = new File(installDirectory + "/setup.py");
+//            if (!setupFile.exists()) {
+//                throw new InstallationException("Could not find setup.py in extracted archive");
+//            }
 
             VirtualEnvDescriptor env = pythonHandle.setupVirtualEnv(installDirectory, "pre-commit");
-            pythonHandle.installPyYaml(env);
-            pythonHandle.installIntoVirtualEnv(env, setupFile);
+//            pythonHandle.installPyYaml(env);
+//            pythonHandle.installIntoVirtualEnv(env, setupFile);
+            pythonHandle.installPrecommit(env, version);
 
             logger.info("Installed pre-commit locally.");
-        } catch (DownloadException e) {
-            throw new InstallationException("Could not download pre-commit", e);
-        } catch (ArchiveExtractionException e) {
-            throw new InstallationException("Could not extract the pre-commit archive", e);
+//        } catch (DownloadException e) {
+//            throw new InstallationException("Could not download pre-commit", e);
+//        } catch (ArchiveExtractionException e) {
+//            throw new InstallationException("Could not extract the pre-commit archive", e);
         } catch (PythonException e) {
             throw new InstallationException("Python encountered an issue when installing the pre-commit binary", e);
         }

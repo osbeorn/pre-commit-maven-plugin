@@ -1,6 +1,7 @@
 package no.oms.maven.precommit.lib;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,6 +22,7 @@ interface PythonHandle {
     VirtualEnvDescriptor setupVirtualEnv(File directory, String envName) throws PythonException;
     void installPyYaml(VirtualEnvDescriptor env) throws PythonException;
     void installIntoVirtualEnv(VirtualEnvDescriptor env, File setupFile) throws PythonException;
+    void installPrecommit(VirtualEnvDescriptor env, String version) throws PythonException;
     void installGitHooks(VirtualEnvDescriptor env, HookType[] hookTypes) throws PythonException;
 }
 
@@ -80,7 +82,7 @@ final class DefaultPythonHandle implements PythonHandle {
         }
 
         String[] command = new String[]{
-                env.directory.getAbsolutePath() + "/bin/pip",
+                env.directory.getAbsolutePath() + (SystemUtils.IS_OS_WINDOWS ? "\\Scripts\\pip.exe" : "/bin/pip"),
                 "install",
                 "pyyaml",
                 "--disable-pip-version-check"
@@ -120,11 +122,14 @@ final class DefaultPythonHandle implements PythonHandle {
         }
 
         String[] command = new String[]{
-                env.directory.getAbsolutePath() + "/bin/python",
+                env.directory.getAbsolutePath() + (SystemUtils.IS_OS_WINDOWS ? "\\Scripts\\python.exe" : "/bin/python"),
                 setupFile.getAbsolutePath(),
                 "install"
         };
-        String[] environment = new String[]{ "VIRTUAL_ENV=" + env.directory.getAbsolutePath() };
+        String[] environment = new String[]{
+                "VIRTUAL_ENV=" + env.directory.getAbsolutePath(),
+                "SETUPTOOLS_USE_DISTUTILS=stdlib"
+        };
         LOGGER.debug("Running {} {} in {}", environment, command, setupFile.getParentFile());
 
         try {
@@ -151,6 +156,46 @@ final class DefaultPythonHandle implements PythonHandle {
     }
 
     @Override
+    public void installPrecommit(VirtualEnvDescriptor env, String version) throws PythonException {
+        LOGGER.info("About to install pre-commit into env {}", env.name);
+
+        if (!env.directory.exists()) {
+            throw new PythonException("Virtual env " + env.name + " does not exist");
+        }
+
+        String[] command = new String[]{
+                env.directory.getAbsolutePath() + (SystemUtils.IS_OS_WINDOWS ? "\\Scripts\\pip.exe" : "/bin/pip"),
+                "install",
+                String.format("pre-commit==%s", version.replace("v", "")),
+                "--disable-pip-version-check"
+        };
+        String[] environment = new String[]{ "VIRTUAL_ENV=" + env.directory.getAbsolutePath() };
+        LOGGER.debug("Running {} {} in {}", environment, command);
+
+        try {
+            Process child = Runtime.getRuntime().exec(command, environment);
+
+            // Write messages to output
+            BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getErrorStream(), "ERROR");
+            BackgroundStreamLogger outputGobbler = new BackgroundStreamLogger(child.getInputStream(), "DEBUG");
+            errorGobbler.start();
+            outputGobbler.start();
+
+            int result = child.waitFor();
+
+            if (result != 0) {
+                throw new PythonException("Failed to install pre-commit into " + env.name + ". return code " + result);
+            }
+        } catch (IOException e) {
+            throw new PythonException("Failed to execute python", e);
+        } catch (InterruptedException e) {
+            throw new PythonException("Unexpected interruption of while waiting for python virtualenv process", e);
+        }
+
+        LOGGER.info("Successfully installed pre-commit into {}", env.name);
+    }
+
+    @Override
     public void installGitHooks(VirtualEnvDescriptor env, HookType[] hookTypes) throws PythonException {
         LOGGER.info("About to install commit hooks into virtual env {}", env.name);
 
@@ -166,7 +211,7 @@ final class DefaultPythonHandle implements PythonHandle {
         // Thus we run pre-commit as many times as necessary
         for (HookType type : hookTypes) {
             String[] command = new String[]{
-                    env.directory.getAbsolutePath() + "/bin/pre-commit",
+                    env.directory.getAbsolutePath() + (SystemUtils.IS_OS_WINDOWS ? "\\Scripts\\pre-commit.exe" : "/bin/pre-commit"),
                     "install",
                     "--install-hooks",
                     "--overwrite",

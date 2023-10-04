@@ -15,6 +15,7 @@ import org.apache.maven.plugins.annotations.Parameter;
  */
 @Mojo(name = "generate-hooks", defaultPhase = LifecyclePhase.INITIALIZE)
 public class GenerateHooksMojo extends AbstractPrecommitMojo {
+
     /**
      * The hook types to install. Defaults to preCommit only.
      */

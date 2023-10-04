@@ -10,6 +10,7 @@ import org.eclipse.aether.RepositorySystemSession;
 import java.io.File;
 
 public abstract class AbstractPrecommitMojo extends AbstractMojo {
+
     /**
      * The base directory for running all Node commands. (Usually the directory that contains package.json)
      */

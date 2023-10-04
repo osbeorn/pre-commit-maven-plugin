@@ -37,7 +37,7 @@ public class DownloadBinaryMojoTest {
         assertNotNull( pom );
         assertTrue( pom.exists() );
 
-        DownloadBinaryMojo downloadBinaryMojo = (DownloadBinaryMojo) rule.lookupConfiguredMojo(pom, "download-binary");
+        DownloadBinaryMojo downloadBinaryMojo = (DownloadBinaryMojo) rule.lookupConfiguredMojo(pom, "install-precommit");
         assertNotNull(downloadBinaryMojo);
         downloadBinaryMojo.execute();
 

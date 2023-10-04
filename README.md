@@ -33,7 +33,7 @@ Add the following to your `pom.xml` under build plugins:
     <executions>
         <execution>
             <goals>
-                <goal>download-binary</goal>
+                <goal>install-precommit</goal>
                 <goal>generate-hooks</goal>
             </goals>
         </execution>
@@ -89,24 +89,3 @@ where `pre-commit` does not want to run the correct version of the hooks because
 it has cached an earlier version.
 
 To fix this, try deleting the cache directory at `~/.cache/pre-commit/`.
-
-## Developing
-
-### Releasing new versions
-Ensure you have access to [OSSRH][ossrh] and that your `~/.m2/settings.xml`
-includes the following
-
-```
-<server>
-  <id>ossrh</id>
-  <username>your_ossrh_username</username>
-  <password>your_ossrh_password</password>
-</server>
-```
-
-Run `mvn clean deploy -P release`
-
-[precommit]: https://pre-commit.com
-[setup]: https://pre-commit.com/#plugins
-[releases]: https://github.com/oslomarketsolutions/pre-commit-maven-plugin/releases
-[ossrh]: https://central.sonatype.org

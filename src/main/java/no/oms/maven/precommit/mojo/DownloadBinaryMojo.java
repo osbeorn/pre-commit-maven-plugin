@@ -1,6 +1,5 @@
 package no.oms.maven.precommit.mojo;
 
-
 import no.oms.maven.precommit.lib.BinaryInstaller;
 import no.oms.maven.precommit.lib.InstallationException;
 import no.oms.maven.precommit.lib.PluginFactory;
@@ -12,14 +11,14 @@ import org.apache.maven.plugins.annotations.Parameter;
 /**
  * Goal which downloads and prepares a pre-commit binary for use later
  */
-@Mojo(name = "download-binary", defaultPhase = LifecyclePhase.INITIALIZE)
+@Mojo(name = "install-pre-commit", defaultPhase = LifecyclePhase.INITIALIZE)
 public class DownloadBinaryMojo extends AbstractPrecommitMojo {
 
     /**
      * Where to download binary from. Defaults to https://github.com/pre-commit/pre-commit/archive/...
      */
-    @Parameter(property = "downloadRoot", defaultValue = BinaryInstaller.DEFAULT_DOWNLOAD_ROOT)
-    private String downloadRoot;
+//    @Parameter(property = "downloadRoot", defaultValue = BinaryInstaller.DEFAULT_DOWNLOAD_ROOT)
+//    private String downloadRoot;
 
     /**
      * The precommitVersion of the pre-commit binary to install. IMPORTANT! Most precommitVersion names start with 'v', for example
@@ -38,7 +37,7 @@ public class DownloadBinaryMojo extends AbstractPrecommitMojo {
     public void execute(PluginFactory pluginFactory) throws MojoExecutionException {
         try {
             pluginFactory.getBinaryInstaller()
-                    .setDownloadRoot(downloadRoot)
+//                    .setDownloadRoot(downloadRoot)
                     .setVersion(precommitVersion)
                     .installBinary();
         } catch (InstallationException e) {

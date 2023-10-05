@@ -1,8 +1,8 @@
 # pre-commit-maven-plugin
 
-> A maven plugin for [the pre-commit framework][precommit]
+> A maven plugin for [the pre-commit framework](https://pre-commit.com/)
 
-[pre-commit][precommit] is a framework for managing commit hooks in a
+[pre-commit](https://pre-commit.com/) is a framework for managing commit hooks in a
 Git repository. It makes working with commit hooks easier, but it has an
 issue. It requires that developers install a binary onto their system
 and manually installing the hooks into their repo by running
@@ -14,7 +14,7 @@ remember!
 
 ## Usage
 
-First, follow the [setup instructions][setup] on pre-commit.com. A
+First, follow the [setup instructions](https://pre-commit.com/#2-add-a-pre-commit-configuration) A
 `.pre-commit-config.yaml` file in the root of the project is required
 for the plugin to work.
 

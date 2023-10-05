@@ -1,18 +1,15 @@
-package no.oms.maven.precommit.lib;
+package io.github.osbeorn.maven.plugin.precommit.lib;
 
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.repository.LocalRepositoryManager;
 
-
 import java.io.File;
-
 
 public class RepositoryCacheResolver implements CacheResolver {
 
-    private static final String GROUP_ID = "no.oms.maven";
+    private static final String GROUP_ID = "io.github.osbeorn";
     private final RepositorySystemSession repositorySystemSession;
-
 
     public RepositoryCacheResolver(RepositorySystemSession repositorySystemSession) {
         this.repositorySystemSession = repositorySystemSession;
@@ -21,13 +18,14 @@ public class RepositoryCacheResolver implements CacheResolver {
     @Override
     public File resolve(CacheDescriptor cacheDescriptor) {
         LocalRepositoryManager manager = repositorySystemSession.getLocalRepositoryManager();
+
         File localArtifact = new File(
                 manager.getRepository().getBasedir(),
                 manager.getPathForLocalArtifact(createArtifact(cacheDescriptor))
         );
+
         return localArtifact;
     }
-
 
     private DefaultArtifact createArtifact(CacheDescriptor cacheDescriptor) {
         String version = cacheDescriptor.getVersion().replaceAll("^v", "");

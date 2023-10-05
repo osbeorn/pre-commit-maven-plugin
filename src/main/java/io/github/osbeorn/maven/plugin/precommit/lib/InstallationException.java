@@ -1,4 +1,4 @@
-package no.oms.maven.precommit.lib;
+package io.github.osbeorn.maven.plugin.precommit.lib;
 
 
 public final class InstallationException extends Exception {

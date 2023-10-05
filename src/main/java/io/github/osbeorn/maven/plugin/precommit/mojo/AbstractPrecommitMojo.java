@@ -1,7 +1,7 @@
-package no.oms.maven.precommit.mojo;
+package io.github.osbeorn.maven.plugin.precommit.mojo;
 
-import no.oms.maven.precommit.lib.PluginFactory;
-import no.oms.maven.precommit.lib.RepositoryCacheResolver;
+import io.github.osbeorn.maven.plugin.precommit.lib.PluginFactory;
+import io.github.osbeorn.maven.plugin.precommit.lib.RepositoryCacheResolver;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -12,7 +12,7 @@ import java.io.File;
 public abstract class AbstractPrecommitMojo extends AbstractMojo {
 
     /**
-     * The base directory for running all Node commands. (Usually the directory that contains package.json)
+     * The base directory for running all commands.
      */
     @Parameter(defaultValue = "${basedir}", property = "workingDirectory")
     protected File workingDirectory;
@@ -20,7 +20,7 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
     /**
      * The base directory for installing the binary into
      */
-    @Parameter(defaultValue = "${basedir}/precommit_files", property = "installDirectory")
+    @Parameter(defaultValue = "${basedir}/.pre-commit-files", property = "installDirectory")
     protected File installDirectory;
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
@@ -43,8 +43,13 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
                 installDirectory = workingDirectory;
             }
 
-            execute(new PluginFactory(workingDirectory, installDirectory,
-                    new RepositoryCacheResolver(repositorySystemSession)));
+            execute(
+                    new PluginFactory(
+                            workingDirectory,
+                            installDirectory,
+                            new RepositoryCacheResolver(repositorySystemSession)
+                    )
+            );
         } else {
             getLog().info("Skipping execution.");
         }

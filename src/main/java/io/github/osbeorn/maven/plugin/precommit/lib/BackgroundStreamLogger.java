@@ -1,4 +1,4 @@
-package no.oms.maven.precommit.lib;
+package io.github.osbeorn.maven.plugin.precommit.lib;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +40,7 @@ class BackgroundStreamLogger extends Thread {
                 }
             }
         } catch (IOException ioe) {
-            LOGGER.error("Reading process stream faled", ioe);
+            LOGGER.error("Reading process stream failed.", ioe);
         }
     }
 }

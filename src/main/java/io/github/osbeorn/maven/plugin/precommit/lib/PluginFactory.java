@@ -1,5 +1,5 @@
-package no.oms.maven.precommit.lib;
-	
+package io.github.osbeorn.maven.plugin.precommit.lib;
+
 import java.io.File;
 
 public final class PluginFactory {
@@ -19,9 +19,9 @@ public final class PluginFactory {
         this.cacheResolver = cacheResolver;
     }
 
-
     public BinaryInstaller getBinaryInstaller() {
-        return new BinaryInstaller(getInstallConfig(), new DefaultArchiveExtractor(), new DefaultFileDownloader(), new DefaultPythonHandle());
+        return new BinaryInstaller(getInstallConfig(), new DefaultFileCopier(), new DefaultFileDownloader(),
+                new DefaultPythonHandle());
     }
 
     public BinaryRunner getBinaryRunner() {
@@ -32,7 +32,7 @@ public final class PluginFactory {
         return new DefaultInstallConfig(installDirectory, workingDirectory, cacheResolver);
     }
 
-    private static final CacheResolver getDefaultCacheResolver(File root) {
+    private static CacheResolver getDefaultCacheResolver(File root) {
         return new DirectoryCacheResolver(new File(root, DEFAULT_CACHE_PATH));
     }
 }

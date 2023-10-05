@@ -1,4 +1,4 @@
-package no.oms.maven.precommit.lib;
+package io.github.osbeorn.maven.plugin.precommit.lib;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,24 +17,10 @@ public class BinaryRunner {
         this.pythonHandle = pythonHandle;
     }
 
-    public void installHooks(HookType[] hookTypes) throws InstallationException {
-        try {
-            logger.info("Installing git commit hooks");
-            File installDirectory = getInstallDirectory();
-
-            VirtualEnvDescriptor env = pythonHandle.setupVirtualEnv(installDirectory, "pre-commit");
-            pythonHandle.installGitHooks(env, hookTypes);
-
-            logger.info("Installed Git commit hooks");
-        } catch (PythonException e) {
-            throw new InstallationException("Python encountered an issue when installing the pre-commit binary", e);
-        }
-    }
-
     private File getInstallDirectory() {
         File installDirectory = new File(config.getInstallDirectory(), INSTALL_PATH);
         if (!installDirectory.exists()) {
-            logger.debug("Creating install directory {}", installDirectory);
+            logger.debug("Creating install directory {}.", installDirectory);
             installDirectory.mkdirs();
         }
         return installDirectory;

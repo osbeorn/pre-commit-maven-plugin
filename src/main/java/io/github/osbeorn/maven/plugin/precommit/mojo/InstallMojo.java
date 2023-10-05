@@ -15,7 +15,8 @@ import org.apache.maven.plugins.annotations.Parameter;
 public class InstallMojo extends AbstractPrecommitMojo {
 
     /**
-     * Where to download binary from. Defaults to https://github.com/pre-commit/pre-commit/releases/download/...
+     * Where to download binary from.
+     * Defaults to <a href="https://github.com/pre-commit/pre-commit/releases/download/">https://github.com/pre-commit/pre-commit/releases/download/...</a>
      */
     @Parameter(property = "downloadRoot", defaultValue = BinaryInstaller.DEFAULT_DOWNLOAD_ROOT)
     private String downloadRoot;
@@ -28,8 +29,8 @@ public class InstallMojo extends AbstractPrecommitMojo {
     private String precommitVersion;
 
     /**
-     * The hook types to install. Defaults to pre-commit only. See https://pre-commit.com/#supported-git-hooks for
-     * possible options.
+     * The hook types to install. Defaults to pre-commit only.
+     * See <a href="https://pre-commit.com/#supported-git-hooks">for possible options</a>
      */
     @Parameter(property = "hookTypes", defaultValue = "pre-commit")
     private String[] hookTypes;

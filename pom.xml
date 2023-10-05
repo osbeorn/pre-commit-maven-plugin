@@ -45,7 +45,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <nexus.staging.maven.plugin.version>1.6.8</nexus.staging.maven.plugin.version>
-        <maven.version>3.9.0</maven.version>
+        <maven.version>3.3.9</maven.version>
         <maven.surefire.plugin>2.22.2</maven.surefire.plugin>
         <maven.failsafe.plugin>2.22.2</maven.failsafe.plugin>
         <maven.source.plugin>3.2.1</maven.source.plugin>

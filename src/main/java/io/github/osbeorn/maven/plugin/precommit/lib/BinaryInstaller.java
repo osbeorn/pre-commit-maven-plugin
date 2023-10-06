@@ -97,6 +97,7 @@ public class BinaryInstaller {
             boolean fileEqual = fileExists && Files.equal(archive, destinationFile);
 
             if (!fileExists || !fileEqual) {
+                logger.info("Copying {} into {}.", archive, destinationDirectory);
                 fileCopier.copy(archive.getPath(), destinationDirectory.getPath());
             }
         } catch (IOException e) {

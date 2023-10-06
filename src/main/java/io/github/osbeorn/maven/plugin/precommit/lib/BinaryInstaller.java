@@ -128,8 +128,10 @@ public class BinaryInstaller {
     private boolean validateFile(String downloadUrl, File destination) throws DownloadException {
         try {
             downloadUrl += ".sha256sum";
-            String hash = IOUtils.toString(URI.create(downloadUrl), StandardCharsets.UTF_8);
-            return Files.asByteSource(destination).hash(Hashing.sha256()).toString().equals(hash);
+            String hash = IOUtils.toString(URI.create(downloadUrl), StandardCharsets.UTF_8).split("\\s+")[0];
+            String destinationHash = Files.asByteSource(destination).hash(Hashing.sha256()).toString();
+
+            return hash.equals(destinationHash);
         } catch (IOException e) {
             throw new DownloadException("Failed to validate downloaded file.");
         }

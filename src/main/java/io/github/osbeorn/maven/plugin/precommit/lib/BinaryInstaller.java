@@ -1,9 +1,15 @@
 package io.github.osbeorn.maven.plugin.precommit.lib;
 
+import com.google.common.hash.Hashing;
+import com.google.common.io.Files;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 
 public class BinaryInstaller {
     public static final String INSTALL_PATH = "/pre-commit";
@@ -96,7 +102,10 @@ public class BinaryInstaller {
     }
 
     private void downloadFileIfMissing(String downloadUrl, File destination) throws DownloadException {
-        if (!destination.exists()) {
+        boolean fileExists = destination.exists();
+        boolean fileValid = validateFile(downloadUrl, destination);
+
+        if (!fileExists || !fileValid) {
             downloadFile(downloadUrl, destination);
         }
     }
@@ -104,5 +113,16 @@ public class BinaryInstaller {
     private void downloadFile(String downloadUrl, File destination) throws DownloadException {
         logger.info("Downloading {} to {}.", downloadUrl, destination);
         fileDownloader.download(downloadUrl, destination.getPath());
+        validateFile(downloadUrl, destination);
+    }
+
+    private boolean validateFile(String downloadUrl, File destination) throws DownloadException {
+        try {
+            downloadUrl += ".sha256sum";
+            String hash = IOUtils.toString(URI.create(downloadUrl), StandardCharsets.UTF_8);
+            return Files.asByteSource(destination).hash(Hashing.sha256()).toString().equals(hash);
+        } catch (IOException e) {
+            throw new DownloadException("Failed to validate downloaded file.");
+        }
     }
 }

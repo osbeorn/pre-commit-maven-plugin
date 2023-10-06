@@ -90,9 +90,17 @@ public class BinaryInstaller {
     }
 
     private void copyFileIfMissing(File archive, File destinationDirectory) throws FileCopyException {
-        File destinationFile = new File(destinationDirectory.getPath() + "/" + archive.getName());
-        if (!destinationFile.exists()) {
-            fileCopier.copy(archive.getPath(), destinationDirectory.getPath());
+        try {
+            File destinationFile = new File(destinationDirectory.getPath() + "/" + archive.getName());
+
+            boolean fileExists = destinationFile.exists();
+            boolean fileEqual = fileExists && Files.equal(archive, destinationFile);
+
+            if (!fileExists || !fileEqual) {
+                fileCopier.copy(archive.getPath(), destinationDirectory.getPath());
+            }
+        } catch (IOException e) {
+            throw new FileCopyException("Failed to copy to destination directory");
         }
     }
 

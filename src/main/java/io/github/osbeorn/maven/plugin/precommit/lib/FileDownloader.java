@@ -65,9 +65,7 @@ final class DefaultFileDownloader implements FileDownloader {
     }
 
     private CloseableHttpResponse execute(String requestUrl) throws IOException {
-        try (CloseableHttpClient httpClient = buildHttpClient(null)) {
-            return httpClient.execute(new HttpGet(requestUrl));
-        }
+        return buildHttpClient(null).execute(new HttpGet(requestUrl));
     }
 
     private CloseableHttpClient buildHttpClient(CredentialsProvider credentialsProvider) {

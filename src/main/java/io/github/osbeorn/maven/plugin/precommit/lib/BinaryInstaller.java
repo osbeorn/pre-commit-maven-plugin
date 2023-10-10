@@ -99,6 +99,8 @@ public class BinaryInstaller {
             if (!fileExists || !fileEqual) {
                 logger.info("Copying {} into {}.", archive, destinationDirectory);
                 fileCopier.copy(archive.getPath(), destinationDirectory.getPath());
+            } else {
+                logger.info("File {} already in {}, skipping copy.", archive.getName(), destinationDirectory);
             }
         } catch (IOException e) {
             throw new FileCopyException("Failed to copy to destination directory");
@@ -112,10 +114,12 @@ public class BinaryInstaller {
 
     private void downloadFileIfMissing(String downloadUrl, File destination) throws DownloadException {
         boolean fileExists = destination.exists();
-        boolean fileValid = validateFile(downloadUrl, destination);
+        boolean fileValid = fileExists && validateFile(downloadUrl, destination);
 
         if (!fileExists || !fileValid) {
             downloadFile(downloadUrl, destination);
+        } else {
+            logger.info("File {} already exists, skipping download.", destination);
         }
     }
 
@@ -127,13 +131,22 @@ public class BinaryInstaller {
 
     private boolean validateFile(String downloadUrl, File destination) throws DownloadException {
         try {
+            logger.info("Verifying {} checksum.", destination);
             downloadUrl += ".sha256sum";
             String hash = IOUtils.toString(URI.create(downloadUrl), StandardCharsets.UTF_8).split("\\s+")[0];
             String destinationHash = Files.asByteSource(destination).hash(Hashing.sha256()).toString();
 
-            return hash.equals(destinationHash);
+            boolean hashEquals = hash.equals(destinationHash);
+
+            if (hashEquals) {
+                logger.info("{} checksum verified.", destination);
+            } else {
+                logger.info("{} checksum doesn't match.", destination);
+            }
+
+            return hashEquals;
         } catch (IOException e) {
-            throw new DownloadException("Failed to validate downloaded file.");
+            throw new DownloadException("Failed to verify downloaded file checksum.");
         }
     }
 }

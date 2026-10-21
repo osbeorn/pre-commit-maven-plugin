@@ -56,8 +56,9 @@ public class BinaryInstallerDownloadTest {
         BinaryInstaller installer = new BinaryInstaller(
                 installConfig,
                 new DefaultFileCopier(),
-                new DefaultFileDownloader(),
-                pythonHandle
+                new DefaultFileDownloader(PluginLogs.silent()),
+                pythonHandle,
+                PluginLogs.silent()
         );
 
         installer.setVersion("v1.0.0")
@@ -96,8 +97,9 @@ public class BinaryInstallerDownloadTest {
         BinaryInstaller installer = new BinaryInstaller(
                 installConfig,
                 new DefaultFileCopier(),
-                new DefaultFileDownloader(),
-                new RecordingPythonHandle()
+                new DefaultFileDownloader(PluginLogs.silent()),
+                new RecordingPythonHandle(),
+                PluginLogs.silent()
         );
 
         try {

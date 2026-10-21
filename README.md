@@ -1,27 +1,17 @@
 # pre-commit-maven-plugin
 
-> A maven plugin for [the pre-commit framework](https://pre-commit.com/)
+> A Maven plugin for [the pre-commit framework](https://pre-commit.com/)
 
-[pre-commit](https://pre-commit.com/) is a framework for managing commit hooks in a
-Git repository. It makes working with commit hooks easier, but it has an
-issue. It requires that developers install a binary onto their system
-and manually installing the hooks into their repo by running
-`pre-commit install --install-hooks`. We can do better than that!
-
-When compiling a maven project, this plugin will install the git hooks
-automatically in the developer's Git project. One less thing to
-remember!
+[pre-commit](https://pre-commit.com/) manages Git commit hooks. Normally each developer runs
+`pre-commit install --install-hooks` by hand. This plugin runs that step during Maven builds
+so hooks stay installed without an extra onboarding step.
 
 ## Usage
 
-First, follow the [setup instructions](https://pre-commit.com/#2-add-a-pre-commit-configuration) A
-`.pre-commit-config.yaml` file in the root of the project is required
-for the plugin to work.
+Add a [`.pre-commit-config.yaml`](https://pre-commit.com/#2-add-a-pre-commit-configuration) at your
+**Git repository root** (the plugin walks up from `${basedir}` to find `.git` and the config file).
 
-By default the plugin runs only on the Maven execution root module in a reactor build.
-Disable that with `-Dprecommit.runOnlyAtExecutionRoot=false` if you need per-module execution.
-
-Add the following to your `pom.xml` under build plugins:
+Add the plugin to your `pom.xml`:
 
 ```xml
 <plugin>
@@ -30,7 +20,6 @@ Add the following to your `pom.xml` under build plugins:
     <version>LATEST_VERSION</version>
     <inherited>false</inherited>
     <configuration>
-        <!-- The version of pre-commit you would like to use -->
         <precommitVersion>v3.4.0</precommitVersion>
     </configuration>
     <executions>
@@ -43,15 +32,17 @@ Add the following to your `pom.xml` under build plugins:
 </plugin>
 ```
 
-Remember to replace `LATEST_VERSION` with the version of the plugin you
-would like to use, i.e. [the latest version][releases]. This will
-register the plugin
+Replace `LATEST_VERSION` with a release from [Maven Central][releases] or a snapshot (see below).
+
+### Reactor / multi-module builds
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `precommit.runOnlyAtExecutionRoot` | `true` | Run only on the top-level Maven project. Set to `false` if the plugin is bound on a submodule (e.g. `casino-api`) and you build from the repo root with `-pl`. |
+
+Bind the plugin on the **aggregator** or a **single module**—not every module—to avoid redundant downloads and hook installs.
 
 ### Other hook types
-
-If you're using other types of hooks than just pre-commit hooks, then you need to
-pass an argument specifying which hooks you would like the plugin to install.
-This is done by setting the `hookTypes` argument:
 
 ```xml
 <hookTypes>
@@ -61,34 +52,84 @@ This is done by setting the `hookTypes` argument:
 </hookTypes>
 ```
 
-All supported hook types: https://pre-commit.com/#supported-git-hooks
+See [supported Git hooks](https://pre-commit.com/#supported-git-hooks).
 
-### Options
+### Configuration parameters
 
-> TODO
+| Parameter | Property | Default | Description |
+|-----------|----------|---------|-------------|
+| `precommitVersion` | `precommitVersion` | *(required)* | pre-commit release tag (usually with `v`, e.g. `v3.4.0`). |
+| `downloadRoot` | `downloadRoot` | GitHub releases URL | Base URL for the `.pyz` download (use an internal mirror if needed). |
+| `workingDirectory` | `workingDirectory` | `${basedir}` | Starting directory when searching for `.git` and `.pre-commit-config.yaml`. |
+| `installDirectory` | `installDirectory` | `${basedir}/.pre-commit-files` | Where the extracted pre-commit bundle is stored locally. |
+| `hookTypes` | `hookTypes` | `pre-commit` | Hook types passed to `pre-commit install --hook-type`. |
+| `skip` | `skip.install` | `false` | Skip the `install` goal entirely. |
+| `runOnlyAtExecutionRoot` | `precommit.runOnlyAtExecutionRoot` | `true` | See reactor section above. |
+| `skipIfMissingGitOrConfig` | `precommit.skipIfMissingGitOrConfig` | `true` | Skip (info log) when not in a Git repo or config is missing—useful for CI without `.git`. |
+
+Download retries: `-Dprecommit.download.maxAttempts=N` (default `3`).
 
 ### Skipping execution
 
-If you need to skip parts of the plugin, you may do so using the
-following system properties:
+| Goal | How to skip |
+|------|-------------|
+| `install` | `-Dskip.install=true` |
 
-| Goal     | Property                 |
-|----------|--------------------------|
-| install  | -Dskip.install           |
+With default `precommit.skipIfMissingGitOrConfig=true`, the goal also skips quietly when there is no
+`.git` or `.pre-commit-config.yaml` in the tree above `${basedir}`.
 
 ### Gitignore
 
-After running the plugin, you will see a `precommit_files` directory in
-your project. This is where the plugin stores the pre-commit files so
-that they can be executed when generating the Git hooks.
+The plugin stores the downloaded bundle under **`${installDirectory}/pre-commit/`** (default:
+`.pre-commit-files/pre-commit/`). Add to `.gitignore`:
 
-You probably want to add this directory to your gitignore.
+```gitignore
+.pre-commit-files/
+```
+
+### Consuming snapshot builds
+
+Snapshots are published to Central Portal (not searchable on [search.maven.org](https://search.maven.org)):
+
+```xml
+<pluginRepositories>
+    <pluginRepository>
+        <id>central-portal-snapshots</id>
+        <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+        <releases><enabled>false</enabled></releases>
+        <snapshots><enabled>true</enabled></snapshots>
+    </pluginRepository>
+</pluginRepositories>
+```
+
+Or mirror that repository in Nexus and point developers at your mirror.
+
+### Requirements
+
+- **Python 3.7+** on the PATH (`python3` or `python`) to run the downloaded pre-commit binary.
+  Newer pre-commit versions may require Python 3.9+—match `precommitVersion` to what your team installs.
+- **Java version of your project** does not affect the pre-commit binary; hooks that invoke Maven use your existing JDK.
 
 ## FAQ
+
 ### Hooks are outdated
 
-If you use `rev: master` or something similar, you may encounter situations
-where `pre-commit` does not want to run the correct version of the hooks because
-it has cached an earlier version.
+If hook repos use a floating `rev` (e.g. `master`), clear the hook cache:
 
-To fix this, try deleting the cache directory at `~/.cache/pre-commit/`.
+```bash
+rm -rf ~/.cache/pre-commit/
+```
+
+### pre-commit install failed in Maven
+
+Failed runs include **stderr/stdout** from the underlying `pre-commit install` process in the Maven
+error message. Run the same command manually from the Git root if you need more context.
+
+### Publishing (maintainers)
+
+Releases and snapshots are published via [Central Publisher Portal](https://central.sonatype.com/)
+using `central-publishing-maven-plugin`. CI uses a Portal **user token** with server id `central` in
+`settings.xml`, including `repositoryOrigins` for `https://central.sonatype.com` (required for
+Maven 3.9+ credential scoping).
+
+[releases]: https://central.sonatype.com/artifact/io.github.osbeorn/pre-commit-maven-plugin

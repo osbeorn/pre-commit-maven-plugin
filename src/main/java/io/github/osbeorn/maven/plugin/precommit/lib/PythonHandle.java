@@ -1,21 +1,20 @@
 package io.github.osbeorn.maven.plugin.precommit.lib;
 
 import org.apache.commons.io.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 final class PythonException extends Exception {
-    PythonException(String message){
+    PythonException(String message) {
         super(message);
     }
+
     PythonException(String message, Throwable cause) {
         super(message, cause);
     }
 }
-
 
 interface PythonHandle {
     void installPrecommit(File setupFile, String[] hookTypes, File workingDirectory) throws PythonException;
@@ -33,14 +32,19 @@ final class VirtualEnvDescriptor {
 
 final class DefaultPythonHandle implements PythonHandle {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PythonHandle.class);
+    private static final int MIN_PYTHON_MAJOR = 3;
+    private static final int MIN_PYTHON_MINOR = 7;
+
+    private final PluginLog log;
+
+    DefaultPythonHandle(PluginLog log) {
+        this.log = log;
+    }
 
     @Override
     public void installPrecommit(File setupFile, String[] hookTypes, File workingDirectory) throws PythonException {
-        LOGGER.info("About to install Git hooks in {}.", workingDirectory);
+        log.info("About to install Git hooks in " + workingDirectory);
 
-        // There is seemingly no way to install all hooks at once
-        // Thus we run pre-commit as many times as necessary
         for (String hookType : hookTypes) {
             String[] command = new String[]{
                     getPython3Executable(),
@@ -52,25 +56,25 @@ final class DefaultPythonHandle implements PythonHandle {
                     hookType
             };
 
-            LOGGER.debug("Running {}.", (Object) command);
+            log.debug("Running " + String.join(" ", command));
 
             try {
                 ProcessBuilder processBuilder = new ProcessBuilder(command);
                 processBuilder.directory(workingDirectory);
                 Process child = processBuilder.start();
 
-                // Write messages to output
-                BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getErrorStream(), "ERROR");
-                BackgroundStreamLogger outputGobbler = new BackgroundStreamLogger(child.getInputStream(), "DEBUG");
-                errorGobbler.start();
-                outputGobbler.start();
+                ProcessStreamDrainer errorDrainer = new ProcessStreamDrainer(child.getErrorStream(), log, true);
+                ProcessStreamDrainer outputDrainer = new ProcessStreamDrainer(child.getInputStream(), log, false);
+                errorDrainer.start();
+                outputDrainer.start();
 
                 int result = child.waitFor();
-                errorGobbler.join();
-                outputGobbler.join();
+                errorDrainer.join();
+                outputDrainer.join();
 
                 if (result != 0) {
-                    throw new PythonException("Failed to install Git hook " + hookType + ". Return code " + result);
+                    throw new PythonException(buildFailureMessage(hookType, result, errorDrainer.getContent(),
+                            outputDrainer.getContent()));
                 }
             } catch (IOException e) {
                 throw new PythonException("Failed to execute python", e);
@@ -80,34 +84,52 @@ final class DefaultPythonHandle implements PythonHandle {
             }
         }
 
-        LOGGER.info("Successfully installed Git hooks.");
+        log.info("Successfully installed Git hooks.");
+    }
+
+    private static String buildFailureMessage(String hookType, int exitCode, String stderr, String stdout) {
+        StringBuilder message = new StringBuilder()
+                .append("Failed to install Git hook ")
+                .append(hookType)
+                .append(". Return code ")
+                .append(exitCode)
+                .append('.');
+        if (!stderr.isEmpty()) {
+            message.append(System.lineSeparator()).append("stderr:").append(System.lineSeparator()).append(stderr);
+        }
+        if (!stdout.isEmpty()) {
+            message.append(System.lineSeparator()).append("stdout:").append(System.lineSeparator()).append(stdout);
+        }
+        return message.toString();
     }
 
     private String getPython3Executable() throws PythonException {
-        if (binaryExists("python3")) return "python3";
-        if (binaryExists("python")) return "python";
+        if (binaryExists("python3")) {
+            return "python3";
+        }
+        if (binaryExists("python")) {
+            return "python";
+        }
 
         throw new PythonException(
-                "Could not find a compatible python 3 version on your system. 3.3 is the minimum supported python version. " +
-                "Please check you have a compatible 'python' or 'python3' executable on your PATH"
+                "Could not find a compatible Python 3 executable on PATH. "
+                        + MIN_PYTHON_MAJOR + "." + MIN_PYTHON_MINOR + "+ is required to run the pre-commit binary."
         );
     }
 
     private boolean binaryExists(String binaryName) {
-        Runtime runtime = Runtime.getRuntime();
-
         try {
-            Process proc = runtime.exec(new String[]{binaryName, "--version"});
-            String output = IOUtils.toString(proc.getInputStream());
+            Process proc = new ProcessBuilder(binaryName, "--version").start();
+            String output = IOUtils.toString(proc.getInputStream(), StandardCharsets.UTF_8);
 
             if (proc.waitFor() == 0 && checkVersion(output)) {
-                LOGGER.debug("Located python binary `{}`.", binaryName);
+                log.debug("Located python binary `" + binaryName + "`.");
                 return true;
             }
         } catch (Exception ignored) {
         }
 
-        LOGGER.debug("Did not locate a python binary called `{}`.", binaryName);
+        log.debug("Did not locate a python binary called `" + binaryName + "`.");
         return false;
     }
 
@@ -117,7 +139,8 @@ final class DefaultPythonHandle implements PythonHandle {
             int majorVersion = Integer.parseInt(versionString.split("\\.")[0]);
             int minorVersion = Integer.parseInt(versionString.split("\\.")[1]);
 
-            return majorVersion >= 3 && minorVersion >= 3;
+            return majorVersion > MIN_PYTHON_MAJOR
+                    || majorVersion == MIN_PYTHON_MAJOR && minorVersion >= MIN_PYTHON_MINOR;
         } catch (Exception exception) {
             throw new PythonException("Unexpected python version output: " + pythonOutput, exception);
         }

@@ -7,8 +7,6 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -37,12 +35,14 @@ final class DefaultFileDownloader implements FileDownloader {
     private static final int DEFAULT_MAX_ATTEMPTS = 3;
     private static final long INITIAL_BACKOFF_MS = 500L;
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private final PluginLog log;
+
+    DefaultFileDownloader(PluginLog log) {
+        this.log = log;
+    }
 
     @Override
     public void download(String downloadUrl, String destination) throws DownloadException {
-        // force tls to 1.2 since GitHub removed weak cryptographic standards
-        // https://blog.github.com/2018-02-02-weak-cryptographic-standards-removal-notice/
         System.setProperty("https.protocols", "TLSv1.2");
         String fixedDownloadUrl = downloadUrl;
 
@@ -72,14 +72,14 @@ final class DefaultFileDownloader implements FileDownloader {
                     throw e;
                 }
                 long backoffMs = INITIAL_BACKOFF_MS * (1L << (attempt - 1));
-                logger.warn(
-                        "Download attempt {}/{} failed for {} ({}). Retrying in {} ms.",
+                log.warn(String.format(
+                        "Download attempt %d/%d failed for %s (%s). Retrying in %d ms.",
                         attempt,
                         maxAttempts,
                         fixedDownloadUrl,
                         e.getMessage(),
                         backoffMs
-                );
+                ));
                 sleep(backoffMs);
             }
         }
@@ -150,10 +150,9 @@ final class DefaultFileDownloader implements FileDownloader {
         }
     }
 
-    private static void deleteQuietly(File file) {
+    private void deleteQuietly(File file) {
         if (file != null && file.exists() && !file.delete()) {
-            LoggerFactory.getLogger(DefaultFileDownloader.class)
-                    .debug("Could not delete incomplete download {}.", file);
+            log.debug("Could not delete incomplete download " + file);
         }
     }
 }

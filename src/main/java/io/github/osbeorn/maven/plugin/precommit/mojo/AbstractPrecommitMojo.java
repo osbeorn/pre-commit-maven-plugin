@@ -1,6 +1,7 @@
 package io.github.osbeorn.maven.plugin.precommit.mojo;
 
 import io.github.osbeorn.maven.plugin.precommit.lib.PluginFactory;
+import io.github.osbeorn.maven.plugin.precommit.lib.PrecommitProjectRoot;
 import io.github.osbeorn.maven.plugin.precommit.lib.RepositoryCacheResolver;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -21,6 +22,13 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
      */
     @Parameter(property = "precommit.runOnlyAtExecutionRoot", defaultValue = "true")
     private boolean runOnlyAtExecutionRoot;
+
+    /**
+     * When {@code true}, skip quietly if no {@code .git} directory and
+     * {@code .pre-commit-config.yaml} can be found when walking up from the working directory.
+     */
+    @Parameter(property = "precommit.skipIfMissingGitOrConfig", defaultValue = "true")
+    private boolean skipIfMissingGitOrConfig;
 
     /**
      * The base directory for running all commands.
@@ -61,6 +69,16 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
             return;
         }
 
+        if (skipIfMissingGitOrConfig && !PrecommitProjectRoot.find(workingDirectory).isPresent()) {
+            getLog().info(
+                    "Skipping pre-commit install: could not find a Git root with "
+                            + PrecommitProjectRoot.CONFIG_FILE_NAME
+                            + " when walking up from "
+                            + workingDirectory
+            );
+            return;
+        }
+
         if (installDirectory == null) {
             installDirectory = workingDirectory;
         }
@@ -69,7 +87,8 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
                 new PluginFactory(
                         workingDirectory,
                         installDirectory,
-                        new RepositoryCacheResolver(repositorySystemSession)
+                        new RepositoryCacheResolver(repositorySystemSession),
+                        new MavenPluginLog(getLog())
                 )
         );
     }

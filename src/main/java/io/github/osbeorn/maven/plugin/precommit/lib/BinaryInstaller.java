@@ -2,8 +2,6 @@ package io.github.osbeorn.maven.plugin.precommit.lib;
 
 import com.google.common.hash.Hashing;
 import com.google.common.io.Files;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,7 +14,7 @@ import java.nio.file.StandardCopyOption;
 public class BinaryInstaller {
     public static final String INSTALL_PATH = "pre-commit";
     public static final String DEFAULT_DOWNLOAD_ROOT = "https://github.com/pre-commit/pre-commit/releases/download/";
-    private final Logger logger;
+    private final PluginLog log;
     private final InstallConfig config;
     private final FileCopier fileCopier;
     private final FileDownloader fileDownloader;
@@ -24,8 +22,8 @@ public class BinaryInstaller {
     private String version, downloadRoot;
     private String[] hookTypes;
 
-    public BinaryInstaller(InstallConfig config, FileCopier fileCopier, FileDownloader fileDownloader, PythonHandle pythonHandle) {
-        logger = LoggerFactory.getLogger(getClass());
+    public BinaryInstaller(InstallConfig config, FileCopier fileCopier, FileDownloader fileDownloader, PythonHandle pythonHandle, PluginLog log) {
+        this.log = log;
         this.config = config;
         this.fileCopier = fileCopier;
         this.fileDownloader = fileDownloader;
@@ -49,7 +47,7 @@ public class BinaryInstaller {
 
     public void install() throws InstallationException {
         try {
-            logger.info("Installing pre-commit version {}.", version);
+            log.info("Installing pre-commit version " + version + ".");
 
             String downloadUrl = downloadRoot + version + "/";
             String extension = "pyz";
@@ -71,10 +69,10 @@ public class BinaryInstaller {
             }
 
             File precommitRoot = PrecommitProjectRoot.resolve(config.getWorkingDirectory());
-            logger.info("Installing Git hooks from {}.", precommitRoot);
+            log.info("Installing Git hooks from " + precommitRoot + ".");
             pythonHandle.installPrecommit(setupFile, hookTypes, precommitRoot);
 
-            logger.info("Successfully installed pre-commit.");
+            log.info("Successfully installed pre-commit.");
         } catch (DownloadException e) {
             throw new InstallationException("Could not download pre-commit", e);
         } catch (FileCopyException e) {
@@ -87,7 +85,7 @@ public class BinaryInstaller {
     private File getInstallDirectory() {
         File installDirectory = new File(config.getInstallDirectory(), INSTALL_PATH);
         if (!installDirectory.exists()) {
-            logger.debug("Creating install directory {}.", installDirectory);
+            log.debug("Creating install directory " + installDirectory + ".");
             installDirectory.mkdirs();
         }
         return installDirectory;
@@ -101,10 +99,10 @@ public class BinaryInstaller {
             boolean fileEqual = fileExists && Files.equal(archive, destinationFile);
 
             if (!fileExists || !fileEqual) {
-                logger.info("Copying {} into {}.", archive, destinationDirectory);
+                log.info("Copying " + archive + " into " + destinationDirectory + ".");
                 fileCopier.copy(archive.getPath(), destinationDirectory.getPath());
             } else {
-                logger.info("File {} already in {}, skipping copy.", archive.getName(), destinationDirectory);
+                log.info("File " + archive.getName() + " already in " + destinationDirectory + ", skipping copy.");
             }
         } catch (IOException e) {
             throw new FileCopyException("Failed to copy to destination directory");
@@ -118,12 +116,12 @@ public class BinaryInstaller {
 
             if (!fileExists || !fileValid) {
                 if (fileExists) {
-                    logger.info("Removing invalid cached file {}.", destination);
+                    log.info("Removing invalid cached file " + destination + ".");
                     deleteQuietly(destination);
                 }
                 downloadFile(downloadUrl, destination);
             } else {
-                logger.info("File {} already exists, skipping download.", destination);
+                log.info("File " + destination + " already exists, skipping download.");
             }
         });
     }
@@ -132,7 +130,7 @@ public class BinaryInstaller {
         File partFile = new File(destination.getPath() + ".part");
         deleteQuietly(partFile);
 
-        logger.info("Downloading {} to {}.", downloadUrl, partFile);
+        log.info("Downloading " + downloadUrl + " to " + partFile + ".");
         fileDownloader.download(downloadUrl, partFile.getPath());
 
         if (!validateFile(downloadUrl, partFile)) {
@@ -144,12 +142,10 @@ public class BinaryInstaller {
     }
 
     private boolean validateFile(String downloadUrl, File destination) throws DownloadException {
-        logger.info("Verifying {} checksum.", destination);
+        log.info("Verifying " + destination + " checksum.");
         File tempChecksum = null;
         try {
             tempChecksum = File.createTempFile("pre-commit-checksum-", ".sha256sum");
-            // Use the same HTTP client as the archive download. GitHub returns 406 for the
-            // default Accept header sent by java.net.HttpURLConnection (used by IOUtils.toString(URI)).
             fileDownloader.download(downloadUrl + ".sha256sum", tempChecksum.getPath());
             String hash = Files.asCharSource(tempChecksum, StandardCharsets.UTF_8)
                     .readFirstLine()
@@ -159,9 +155,9 @@ public class BinaryInstaller {
             boolean hashEquals = hash.equals(destinationHash);
 
             if (hashEquals) {
-                logger.info("{} checksum verified.", destination);
+                log.info(destination + " checksum verified.");
             } else {
-                logger.info("{} checksum doesn't match.", destination);
+                log.info(destination + " checksum doesn't match.");
             }
 
             return hashEquals;
@@ -214,7 +210,7 @@ public class BinaryInstaller {
 
     private void deleteQuietly(File file) {
         if (file != null && file.exists() && !file.delete()) {
-            logger.debug("Could not delete {}.", file);
+            log.debug("Could not delete " + file + ".");
         }
     }
 

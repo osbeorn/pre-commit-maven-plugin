@@ -38,7 +38,7 @@ public class InstallMojo extends AbstractPrecommitMojo {
     /**
      * Skips execution of this mojo.
      */
-    @Parameter(property = "skip.install", alias = "skip.install", defaultValue = "${skip.install}")
+    @Parameter(property = "skip.install", defaultValue = "false")
     private boolean skip;
 
     @Override

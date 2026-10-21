@@ -58,7 +58,7 @@ public class DefaultFileDownloaderTest {
                 .willReturn(aResponse().withStatus(200).withBody(checksumBody)));
 
         File destination = temporaryFolder.newFile("checksum.sha256sum");
-        DefaultFileDownloader downloader = new DefaultFileDownloader();
+        DefaultFileDownloader downloader = new DefaultFileDownloader(PluginLogs.silent());
         downloader.download(baseUrl() + "/pre-commit.pyz.sha256sum", destination.getPath());
 
         assertEquals(checksumBody, new String(Files.readAllBytes(destination.toPath()), StandardCharsets.UTF_8));
@@ -79,7 +79,7 @@ public class DefaultFileDownloaderTest {
                 .willReturn(aResponse().withStatus(200).withBody("payload")));
 
         File destination = temporaryFolder.newFile("archive.pyz");
-        DefaultFileDownloader downloader = new DefaultFileDownloader();
+        DefaultFileDownloader downloader = new DefaultFileDownloader(PluginLogs.silent());
         downloader.download(baseUrl() + "/archive.pyz", destination.getPath());
 
         assertEquals("payload", new String(Files.readAllBytes(destination.toPath()), StandardCharsets.UTF_8));
@@ -94,7 +94,7 @@ public class DefaultFileDownloaderTest {
                 .willReturn(aResponse().withStatus(404)));
 
         File destination = temporaryFolder.newFile("missing.pyz");
-        DefaultFileDownloader downloader = new DefaultFileDownloader();
+        DefaultFileDownloader downloader = new DefaultFileDownloader(PluginLogs.silent());
 
         try {
             downloader.download(baseUrl() + "/missing.pyz", destination.getPath());

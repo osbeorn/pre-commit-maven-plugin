@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class PrecommitProjectRootTest {
@@ -47,6 +48,14 @@ public class PrecommitProjectRootTest {
         new File(repositoryRoot, ".git").mkdir();
 
         PrecommitProjectRoot.resolve(repositoryRoot);
+    }
+
+    @Test
+    public void findReturnsEmptyWhenGitOrConfigIsMissing() throws Exception {
+        File repositoryRoot = temporaryFolder.newFolder("repo");
+        new File(repositoryRoot, ".git").mkdir();
+
+        assertFalse(PrecommitProjectRoot.find(repositoryRoot).isPresent());
     }
 
     private static void writePrecommitConfig(File directory) throws Exception {

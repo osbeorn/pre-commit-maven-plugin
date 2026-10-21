@@ -2,15 +2,16 @@
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
     <servers>
+        <!-- Central Publisher Portal user token (server id must be "central") -->
         <server>
-            <id>ossrh</id>
+            <id>central</id>
             <username>${env.OSSRH_USERNAME}</username>
             <password>${env.OSSRH_PASSWORD}</password>
         </server>
     </servers>
     <profiles>
         <profile>
-            <id>ossrh</id>
+            <id>central</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>

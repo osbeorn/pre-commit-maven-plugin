@@ -5,8 +5,8 @@
         <!-- Central Portal *user token* (not legacy OSSRH password). Generate at central.sonatype.com/account -->
         <server>
             <id>central</id>
-            <username>${env.CENTRAL_TOKEN_USERNAME}</username>
-            <password>${env.CENTRAL_TOKEN_PASSWORD}</password>
+            <username>${env.OSSRH_USERNAME}</username>
+            <password>${env.OSSRH_PASSWORD}</password>
         </server>
     </servers>
     <profiles>

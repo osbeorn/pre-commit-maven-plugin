@@ -2,11 +2,11 @@
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
     <servers>
-        <!-- Central Publisher Portal user token (server id must be "central") -->
+        <!-- Central Portal *user token* (not legacy OSSRH password). Generate at central.sonatype.com/account -->
         <server>
             <id>central</id>
-            <username>${env.OSSRH_USERNAME}</username>
-            <password>${env.OSSRH_PASSWORD}</password>
+            <username>${env.CENTRAL_TOKEN_USERNAME}</username>
+            <password>${env.CENTRAL_TOKEN_PASSWORD}</password>
         </server>
     </servers>
     <profiles>

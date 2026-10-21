@@ -53,7 +53,7 @@
         <junit.version>4.13.2</junit.version>
         <wiremock.version>2.35.1</wiremock.version>
 
-        <nexus.staging.maven.plugin.version>1.6.13</nexus.staging.maven.plugin.version>
+        <central.publishing.maven.plugin.version>0.12.0</central.publishing.maven.plugin.version>
         <maven.plugin.plugin>3.9.0</maven.plugin.plugin>
         <maven.surefire.plugin>3.1.2</maven.surefire.plugin>
         <maven.failsafe.plugin>3.1.2</maven.failsafe.plugin>
@@ -63,10 +63,6 @@
     </properties>
 
     <distributionManagement>
-        <repository>
-            <id>central</id>
-            <url>https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/</url>
-        </repository>
         <snapshotRepository>
             <id>central</id>
             <url>https://central.sonatype.com/repository/maven-snapshots/</url>
@@ -172,17 +168,17 @@
                 </executions>
             </plugin>
 
-            <!-- Plugins for uploading to OSSRH -->
             <plugin>
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-                <version>${nexus.staging.maven.plugin.version}</version>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>${central.publishing.maven.plugin.version}</version>
                 <extensions>true</extensions>
                 <configuration>
-                    <serverId>central</serverId>
-                    <nexusUrl>https://ossrh-staging-api.central.sonatype.com/service/local/</nexusUrl>
-                    <snapshotRepositoryUrl>https://central.sonatype.com/repository/maven-snapshots/</snapshotRepositoryUrl>
-                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                    <publishingServerId>central</publishingServerId>
+                    <centralSnapshotsUrl>https://central.sonatype.com/repository/maven-snapshots/</centralSnapshotsUrl>
+                    <deploymentName>pre-commit-maven-plugin</deploymentName>
+                    <autoPublish>true</autoPublish>
+                    <waitUntil>published</waitUntil>
                 </configuration>
             </plugin>
             <plugin>

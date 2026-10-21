@@ -1,12 +1,16 @@
-<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+<settings xmlns="http://maven.apache.org/SETTINGS/1.3.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.3.0 https://maven.apache.org/xsd/settings-1.3.0.xsd">
     <servers>
-        <!-- Central Portal *user token* (not legacy OSSRH password). Generate at central.sonatype.com/account -->
+        <!-- Central Portal user token (generate at central.sonatype.com/account) -->
         <server>
             <id>central</id>
             <username>${env.OSSRH_USERNAME}</username>
             <password>${env.OSSRH_PASSWORD}</password>
+            <!-- Maven 3.9+ scopes credentials by host; without this, "central" only matches repo.maven.apache.org -->
+            <repositoryOrigins>
+                <repositoryOrigin>https://central.sonatype.com</repositoryOrigin>
+            </repositoryOrigins>
         </server>
     </servers>
     <profiles>

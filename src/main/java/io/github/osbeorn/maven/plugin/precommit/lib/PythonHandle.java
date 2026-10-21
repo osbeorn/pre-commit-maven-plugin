@@ -18,7 +18,7 @@ final class PythonException extends Exception {
 
 
 interface PythonHandle {
-    void installPrecommit(File setupFile, String[] hookTypes) throws PythonException;
+    void installPrecommit(File setupFile, String[] hookTypes, File workingDirectory) throws PythonException;
 }
 
 final class VirtualEnvDescriptor {
@@ -36,8 +36,8 @@ final class DefaultPythonHandle implements PythonHandle {
     private static final Logger LOGGER = LoggerFactory.getLogger(PythonHandle.class);
 
     @Override
-    public void installPrecommit(File setupFile, String[] hookTypes) throws PythonException {
-        LOGGER.info("About to install Git hooks.");
+    public void installPrecommit(File setupFile, String[] hookTypes, File workingDirectory) throws PythonException {
+        LOGGER.info("About to install Git hooks in {}.", workingDirectory);
 
         // There is seemingly no way to install all hooks at once
         // Thus we run pre-commit as many times as necessary
@@ -55,7 +55,9 @@ final class DefaultPythonHandle implements PythonHandle {
             LOGGER.debug("Running {}.", (Object) command);
 
             try {
-                Process child = Runtime.getRuntime().exec(command/*, environment, setupFile.getParentFile()*/);
+                ProcessBuilder processBuilder = new ProcessBuilder(command);
+                processBuilder.directory(workingDirectory);
+                Process child = processBuilder.start();
 
                 // Write messages to output
                 BackgroundStreamLogger errorGobbler = new BackgroundStreamLogger(child.getErrorStream(), "ERROR");
@@ -64,6 +66,8 @@ final class DefaultPythonHandle implements PythonHandle {
                 outputGobbler.start();
 
                 int result = child.waitFor();
+                errorGobbler.join();
+                outputGobbler.join();
 
                 if (result != 0) {
                     throw new PythonException("Failed to install Git hook " + hookType + ". Return code " + result);
@@ -71,6 +75,7 @@ final class DefaultPythonHandle implements PythonHandle {
             } catch (IOException e) {
                 throw new PythonException("Failed to execute python", e);
             } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 throw new PythonException("Unexpected interruption while waiting for pre-commit install process", e);
             }
         }

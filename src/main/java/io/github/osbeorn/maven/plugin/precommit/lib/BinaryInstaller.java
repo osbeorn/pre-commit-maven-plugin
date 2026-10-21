@@ -2,17 +2,19 @@ package io.github.osbeorn.maven.plugin.precommit.lib;
 
 import com.google.common.hash.Hashing;
 import com.google.common.io.Files;
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.StandardCopyOption;
 
 public class BinaryInstaller {
-    public static final String INSTALL_PATH = "/pre-commit";
+    public static final String INSTALL_PATH = "pre-commit";
     public static final String DEFAULT_DOWNLOAD_ROOT = "https://github.com/pre-commit/pre-commit/releases/download/";
     private final Logger logger;
     private final InstallConfig config;
@@ -63,12 +65,14 @@ public class BinaryInstaller {
             File installDirectory = getInstallDirectory();
             copyFileIfMissing(archive, installDirectory);
 
-            File setupFile = new File(installDirectory + "/" + setupFileName);
+            File setupFile = new File(installDirectory, setupFileName);
             if (!setupFile.exists()) {
                 throw new InstallationException("Could not find " + setupFileName);
             }
 
-            pythonHandle.installPrecommit(setupFile, hookTypes);
+            File precommitRoot = PrecommitProjectRoot.resolve(config.getWorkingDirectory());
+            logger.info("Installing Git hooks from {}.", precommitRoot);
+            pythonHandle.installPrecommit(setupFile, hookTypes, precommitRoot);
 
             logger.info("Successfully installed pre-commit.");
         } catch (DownloadException e) {
@@ -107,33 +111,49 @@ public class BinaryInstaller {
         }
     }
 
-    private void copyFile(File archive, File destinationDirectory) throws FileCopyException {
-        logger.info("Copying {} into {}.", archive, destinationDirectory);
-        fileCopier.copy(archive.getPath(), destinationDirectory.getPath());
-    }
-
     private void downloadFileIfMissing(String downloadUrl, File destination) throws DownloadException {
-        boolean fileExists = destination.exists();
-        boolean fileValid = fileExists && validateFile(downloadUrl, destination);
+        withDownloadLock(destination, () -> {
+            boolean fileExists = destination.exists();
+            boolean fileValid = fileExists && validateFile(downloadUrl, destination);
 
-        if (!fileExists || !fileValid) {
-            downloadFile(downloadUrl, destination);
-        } else {
-            logger.info("File {} already exists, skipping download.", destination);
-        }
+            if (!fileExists || !fileValid) {
+                if (fileExists) {
+                    logger.info("Removing invalid cached file {}.", destination);
+                    deleteQuietly(destination);
+                }
+                downloadFile(downloadUrl, destination);
+            } else {
+                logger.info("File {} already exists, skipping download.", destination);
+            }
+        });
     }
 
     private void downloadFile(String downloadUrl, File destination) throws DownloadException {
-        logger.info("Downloading {} to {}.", downloadUrl, destination);
-        fileDownloader.download(downloadUrl, destination.getPath());
-        validateFile(downloadUrl, destination);
+        File partFile = new File(destination.getPath() + ".part");
+        deleteQuietly(partFile);
+
+        logger.info("Downloading {} to {}.", downloadUrl, partFile);
+        fileDownloader.download(downloadUrl, partFile.getPath());
+
+        if (!validateFile(downloadUrl, partFile)) {
+            deleteQuietly(partFile);
+            throw new DownloadException("Downloaded file checksum does not match.");
+        }
+
+        moveIntoPlace(partFile, destination);
     }
 
     private boolean validateFile(String downloadUrl, File destination) throws DownloadException {
+        logger.info("Verifying {} checksum.", destination);
+        File tempChecksum = null;
         try {
-            logger.info("Verifying {} checksum.", destination);
-            downloadUrl += ".sha256sum";
-            String hash = IOUtils.toString(URI.create(downloadUrl), StandardCharsets.UTF_8).split("\\s+")[0];
+            tempChecksum = File.createTempFile("pre-commit-checksum-", ".sha256sum");
+            // Use the same HTTP client as the archive download. GitHub returns 406 for the
+            // default Accept header sent by java.net.HttpURLConnection (used by IOUtils.toString(URI)).
+            fileDownloader.download(downloadUrl + ".sha256sum", tempChecksum.getPath());
+            String hash = Files.asCharSource(tempChecksum, StandardCharsets.UTF_8)
+                    .readFirstLine()
+                    .split("\\s+")[0];
             String destinationHash = Files.asByteSource(destination).hash(Hashing.sha256()).toString();
 
             boolean hashEquals = hash.equals(destinationHash);
@@ -146,7 +166,60 @@ public class BinaryInstaller {
 
             return hashEquals;
         } catch (IOException e) {
-            throw new DownloadException("Failed to verify downloaded file checksum.");
+            throw new DownloadException("Failed to verify downloaded file checksum.", e);
+        } finally {
+            deleteQuietly(tempChecksum);
         }
+    }
+
+    private void withDownloadLock(File destination, DownloadAction action) throws DownloadException {
+        File parent = destination.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+
+        File lockFile = new File(parent, destination.getName() + ".lock");
+        try (RandomAccessFile lockAccess = new RandomAccessFile(lockFile, "rw");
+             FileChannel channel = lockAccess.getChannel();
+             FileLock ignored = channel.lock()) {
+            action.run();
+        } catch (IOException e) {
+            throw new DownloadException("Could not acquire download lock for " + destination, e);
+        } finally {
+            deleteQuietly(lockFile);
+        }
+    }
+
+    private void moveIntoPlace(File partFile, File destination) throws DownloadException {
+        try {
+            java.nio.file.Files.move(
+                    partFile.toPath(),
+                    destination.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE
+            );
+        } catch (IOException atomicMoveFailed) {
+            try {
+                java.nio.file.Files.move(
+                        partFile.toPath(),
+                        destination.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                );
+            } catch (IOException e) {
+                deleteQuietly(partFile);
+                throw new DownloadException("Could not move downloaded file into place.", e);
+            }
+        }
+    }
+
+    private void deleteQuietly(File file) {
+        if (file != null && file.exists() && !file.delete()) {
+            logger.debug("Could not delete {}.", file);
+        }
+    }
+
+    @FunctionalInterface
+    private interface DownloadAction {
+        void run() throws DownloadException;
     }
 }

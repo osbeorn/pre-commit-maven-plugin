@@ -5,11 +5,22 @@ import io.github.osbeorn.maven.plugin.precommit.lib.RepositoryCacheResolver;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.RepositorySystemSession;
 
 import java.io.File;
 
 public abstract class AbstractPrecommitMojo extends AbstractMojo {
+
+    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    private MavenProject project;
+
+    /**
+     * When {@code true}, the plugin runs only on the Maven execution root module
+     * (the top-level project in a reactor build).
+     */
+    @Parameter(property = "precommit.runOnlyAtExecutionRoot", defaultValue = "true")
+    private boolean runOnlyAtExecutionRoot;
 
     /**
      * The base directory for running all commands.
@@ -38,20 +49,28 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
-        if (!skipExecution()) {
-            if (installDirectory == null) {
-                installDirectory = workingDirectory;
-            }
-
-            execute(
-                    new PluginFactory(
-                            workingDirectory,
-                            installDirectory,
-                            new RepositoryCacheResolver(repositorySystemSession)
-                    )
-            );
-        } else {
+        if (skipExecution()) {
             getLog().info("Skipping execution.");
+            return;
         }
+
+        if (runOnlyAtExecutionRoot && !project.isExecutionRoot()) {
+            getLog().debug(
+                    "Skipping pre-commit on non-execution-root module " + project.getArtifactId() + "."
+            );
+            return;
+        }
+
+        if (installDirectory == null) {
+            installDirectory = workingDirectory;
+        }
+
+        execute(
+                new PluginFactory(
+                        workingDirectory,
+                        installDirectory,
+                        new RepositoryCacheResolver(repositorySystemSession)
+                )
+        );
     }
 }

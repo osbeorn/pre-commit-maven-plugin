@@ -15,10 +15,11 @@ public class DirectoryCacheResolver implements CacheResolver {
             cacheDirectory.mkdirs();
         }
 
+        String version = cacheDescriptor.getVersion().replaceFirst("^v", "");
         StringBuilder filename = new StringBuilder()
                 .append(cacheDescriptor.getName())
                 .append("-")
-                .append(cacheDescriptor.getVersion());
+                .append(version);
 
         if (cacheDescriptor.getClassifier() != null) {
             filename.append("-").append(cacheDescriptor.getClassifier());

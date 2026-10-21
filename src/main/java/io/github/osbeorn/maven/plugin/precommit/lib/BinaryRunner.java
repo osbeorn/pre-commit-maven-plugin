@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 
 public class BinaryRunner {
-    public static final String INSTALL_PATH = "/pre-commit";
+    public static final String INSTALL_PATH = "pre-commit";
     private final Logger logger;
     private final InstallConfig config;
     private final PythonHandle pythonHandle;

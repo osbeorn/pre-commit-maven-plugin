@@ -18,6 +18,9 @@ First, follow the [setup instructions](https://pre-commit.com/#2-add-a-pre-commi
 `.pre-commit-config.yaml` file in the root of the project is required
 for the plugin to work.
 
+By default the plugin runs only on the Maven execution root module in a reactor build.
+Disable that with `-Dprecommit.runOnlyAtExecutionRoot=false` if you need per-module execution.
+
 Add the following to your `pom.xml` under build plugins:
 
 ```xml

@@ -28,7 +28,13 @@ public final class PluginFactory {
     }
 
     public BinaryRunner getBinaryRunner() {
-        return new BinaryRunner(getInstallConfig(), new DefaultPythonHandle(log));
+        return new BinaryRunner(
+                getInstallConfig(),
+                new DefaultFileCopier(),
+                new DefaultFileDownloader(log),
+                new DefaultPythonHandle(log),
+                log
+        );
     }
 
     private InstallConfig getInstallConfig() {

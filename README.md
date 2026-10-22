@@ -32,6 +32,12 @@ Add the plugin to your `pom.xml`:
 </plugin>
 ```
 
+To run hooks in CI (without waiting for a Git commit), bind or invoke the **`run`** goal:
+
+```bash
+mvn pre-commit:run -Dprecommit.allFiles=true
+```
+
 Replace `LATEST_VERSION` with a release from [Maven Central][releases] or a snapshot (see below).
 
 ### Reactor / multi-module builds
@@ -66,14 +72,24 @@ See [supported Git hooks](https://pre-commit.com/#supported-git-hooks).
 | `skip` | `skip.install` | `false` | Skip the `install` goal entirely. |
 | `runOnlyAtExecutionRoot` | `precommit.runOnlyAtExecutionRoot` | `true` | See reactor section above. |
 | `skipIfMissingGitOrConfig` | `precommit.skipIfMissingGitOrConfig` | `true` | Skip (info log) when not in a Git repo or config is missing—useful for CI without `.git`. |
+| `allFiles` (`run` goal) | `precommit.allFiles` | `false` | Pass `--all-files` to `pre-commit run` (check entire tree vs staged files only). |
+| `hookIds` (`run` goal) | `hookIds` | *(empty)* | Optional hook ids; omit to run all hooks from `.pre-commit-config.yaml`. |
 
 Download retries: `-Dprecommit.download.maxAttempts=N` (default `3`).
+
+### Goals
+
+| Goal | Default phase | Purpose |
+|------|---------------|---------|
+| `install` | `initialize` | Download pre-commit and run `pre-commit install --install-hooks`. |
+| `run` | `verify` | Run `pre-commit run` (fails the build if hooks fail). |
 
 ### Skipping execution
 
 | Goal | How to skip |
 |------|-------------|
 | `install` | `-Dskip.install=true` |
+| `run` | `-Dskip.run=true` |
 
 With default `precommit.skipIfMissingGitOrConfig=true`, the goal also skips quietly when there is no
 `.git` or `.pre-commit-config.yaml` in the tree above `${basedir}`.

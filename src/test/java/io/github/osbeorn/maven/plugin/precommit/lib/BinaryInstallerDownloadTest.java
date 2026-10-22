@@ -140,5 +140,9 @@ public class BinaryInstallerDownloadTest {
             this.hookTypes = hookTypes;
             this.workingDirectory = workingDirectory;
         }
+
+        @Override
+        public void runPrecommit(File setupFile, File workingDirectory, boolean allFiles, String[] hookIds) {
+        }
     }
 }

@@ -5,6 +5,7 @@ import io.github.osbeorn.maven.plugin.precommit.lib.PrecommitProjectRoot;
 import io.github.osbeorn.maven.plugin.precommit.lib.RepositoryCacheResolver;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.RepositorySystemSession;
@@ -48,7 +49,7 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
     /**
      * Implemented by children to define an execution
      */
-    protected abstract void execute(PluginFactory pluginFactory) throws MojoExecutionException;
+    protected abstract void execute(PluginFactory pluginFactory) throws MojoExecutionException, MojoFailureException;
 
     /**
      * Implemented by children to determine if this execution should be skipped.
@@ -56,7 +57,7 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
     protected abstract boolean skipExecution();
 
     @Override
-    public void execute() throws MojoExecutionException {
+    public void execute() throws MojoExecutionException, MojoFailureException {
         if (skipExecution()) {
             getLog().info("Skipping execution.");
             return;

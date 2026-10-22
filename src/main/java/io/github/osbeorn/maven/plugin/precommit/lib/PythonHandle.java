@@ -5,6 +5,9 @@ import org.apache.commons.io.IOUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 final class PythonException extends Exception {
     PythonException(String message) {
@@ -18,6 +21,8 @@ final class PythonException extends Exception {
 
 interface PythonHandle {
     void installPrecommit(File setupFile, String[] hookTypes, File workingDirectory) throws PythonException;
+
+    void runPrecommit(File setupFile, File workingDirectory, boolean allFiles, String[] hookIds) throws PythonException;
 }
 
 final class VirtualEnvDescriptor {
@@ -46,51 +51,75 @@ final class DefaultPythonHandle implements PythonHandle {
         log.info("About to install Git hooks in " + workingDirectory);
 
         for (String hookType : hookTypes) {
-            String[] command = new String[]{
-                    getPython3Executable(),
-                    setupFile.getAbsolutePath(),
-                    "install",
-                    "--install-hooks",
-                    "--overwrite",
-                    "--hook-type",
-                    hookType
-            };
+            List<String> command = new ArrayList<>();
+            command.add(getPython3Executable());
+            command.add(setupFile.getAbsolutePath());
+            command.add("install");
+            command.add("--install-hooks");
+            command.add("--overwrite");
+            command.add("--hook-type");
+            command.add(hookType);
 
-            log.debug("Running " + String.join(" ", command));
-
-            try {
-                ProcessBuilder processBuilder = new ProcessBuilder(command);
-                processBuilder.directory(workingDirectory);
-                Process child = processBuilder.start();
-
-                ProcessStreamDrainer errorDrainer = new ProcessStreamDrainer(child.getErrorStream(), log, true);
-                ProcessStreamDrainer outputDrainer = new ProcessStreamDrainer(child.getInputStream(), log, false);
-                errorDrainer.start();
-                outputDrainer.start();
-
-                int result = child.waitFor();
-                errorDrainer.join();
-                outputDrainer.join();
-
-                if (result != 0) {
-                    throw new PythonException(buildFailureMessage(hookType, result, errorDrainer.getContent(),
-                            outputDrainer.getContent()));
-                }
-            } catch (IOException e) {
-                throw new PythonException("Failed to execute python", e);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new PythonException("Unexpected interruption while waiting for pre-commit install process", e);
-            }
+            executePrecommit(command, workingDirectory, "install Git hook " + hookType);
         }
 
         log.info("Successfully installed Git hooks.");
     }
 
-    private static String buildFailureMessage(String hookType, int exitCode, String stderr, String stdout) {
+    @Override
+    public void runPrecommit(File setupFile, File workingDirectory, boolean allFiles, String[] hookIds)
+            throws PythonException {
+        log.info("Running pre-commit hooks in " + workingDirectory + ".");
+
+        List<String> command = new ArrayList<>();
+        command.add(getPython3Executable());
+        command.add(setupFile.getAbsolutePath());
+        command.add("run");
+        if (allFiles) {
+            command.add("--all-files");
+        }
+        if (hookIds != null) {
+            Collections.addAll(command, hookIds);
+        }
+
+        executePrecommit(command, workingDirectory, "pre-commit run");
+        log.info("pre-commit run completed successfully.");
+    }
+
+    private void executePrecommit(List<String> command, File workingDirectory, String actionDescription)
+            throws PythonException {
+        log.debug("Running " + String.join(" ", command));
+
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.directory(workingDirectory);
+            Process child = processBuilder.start();
+
+            ProcessStreamDrainer errorDrainer = new ProcessStreamDrainer(child.getErrorStream(), log, true);
+            ProcessStreamDrainer outputDrainer = new ProcessStreamDrainer(child.getInputStream(), log, false);
+            errorDrainer.start();
+            outputDrainer.start();
+
+            int result = child.waitFor();
+            errorDrainer.join();
+            outputDrainer.join();
+
+            if (result != 0) {
+                throw new PythonException(buildFailureMessage(actionDescription, result, errorDrainer.getContent(),
+                        outputDrainer.getContent()));
+            }
+        } catch (IOException e) {
+            throw new PythonException("Failed to execute python", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PythonException("Unexpected interruption while waiting for pre-commit process", e);
+        }
+    }
+
+    private static String buildFailureMessage(String actionDescription, int exitCode, String stderr, String stdout) {
         StringBuilder message = new StringBuilder()
-                .append("Failed to install Git hook ")
-                .append(hookType)
+                .append("Failed to ")
+                .append(actionDescription)
                 .append(". Return code ")
                 .append(exitCode)
                 .append('.');

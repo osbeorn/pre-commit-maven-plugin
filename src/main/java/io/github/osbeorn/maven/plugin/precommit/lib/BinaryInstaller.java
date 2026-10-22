@@ -45,41 +45,55 @@ public class BinaryInstaller {
         return this;
     }
 
+    public File ensureSetupFileAvailable() throws InstallationException {
+        try {
+            log.info("Ensuring pre-commit version " + version + " is available.");
+            File setupFile = provisionSetupFile();
+            if (!setupFile.exists()) {
+                throw new InstallationException("Could not find " + setupFile.getName());
+            }
+            return setupFile;
+        } catch (DownloadException e) {
+            throw new InstallationException("Could not download pre-commit", e);
+        } catch (FileCopyException e) {
+            throw new InstallationException("Could not copy the pre-commit archive", e);
+        }
+    }
+
     public void install() throws InstallationException {
         try {
             log.info("Installing pre-commit version " + version + ".");
-
-            String downloadUrl = downloadRoot + version + "/";
-            String extension = "pyz";
-            String setupFileName = String.format("pre-commit-%s.%s", version.replace("v", ""), extension);
-            downloadUrl += setupFileName;
-
-            CacheDescriptor cacheDescriptor = new CacheDescriptor("pre-commit", version, extension);
-
-            File archive = config.getCacheResolver().resolve(cacheDescriptor);
-
-            downloadFileIfMissing(downloadUrl, archive);
-
-            File installDirectory = getInstallDirectory();
-            copyFileIfMissing(archive, installDirectory);
-
-            File setupFile = new File(installDirectory, setupFileName);
-            if (!setupFile.exists()) {
-                throw new InstallationException("Could not find " + setupFileName);
-            }
+            File setupFile = ensureSetupFileAvailable();
 
             File precommitRoot = PrecommitProjectRoot.resolve(config.getWorkingDirectory());
             log.info("Installing Git hooks from " + precommitRoot + ".");
             pythonHandle.installPrecommit(setupFile, hookTypes, precommitRoot);
 
             log.info("Successfully installed pre-commit.");
-        } catch (DownloadException e) {
-            throw new InstallationException("Could not download pre-commit", e);
-        } catch (FileCopyException e) {
-            throw new InstallationException("Could not copy the pre-commit archive", e);
         } catch (PythonException e) {
             throw new InstallationException("Python encountered an issue when installing the pre-commit binary", e);
         }
+    }
+
+    private File provisionSetupFile() throws DownloadException, FileCopyException {
+        String downloadUrl = downloadRoot + version + "/";
+        String extension = "pyz";
+        String setupFileName = setupFileName(version);
+        downloadUrl += setupFileName;
+
+        CacheDescriptor cacheDescriptor = new CacheDescriptor("pre-commit", version, extension);
+        File archive = config.getCacheResolver().resolve(cacheDescriptor);
+
+        downloadFileIfMissing(downloadUrl, archive);
+
+        File installDirectory = getInstallDirectory();
+        copyFileIfMissing(archive, installDirectory);
+
+        return new File(installDirectory, setupFileName);
+    }
+
+    static String setupFileName(String version) {
+        return String.format("pre-commit-%s.pyz", version.replace("v", ""));
     }
 
     private File getInstallDirectory() {

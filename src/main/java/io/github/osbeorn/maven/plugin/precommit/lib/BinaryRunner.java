@@ -3,27 +3,54 @@ package io.github.osbeorn.maven.plugin.precommit.lib;
 import java.io.File;
 
 public class BinaryRunner {
-    public static final String INSTALL_PATH = "pre-commit";
     private final PluginLog log;
     private final InstallConfig config;
+    private final FileCopier fileCopier;
+    private final FileDownloader fileDownloader;
     private final PythonHandle pythonHandle;
+    private String version;
+    private String downloadRoot;
 
-    public BinaryRunner(InstallConfig config, PythonHandle pythonHandle) {
-        this(config, pythonHandle, PluginLogs.silent());
-    }
-
-    BinaryRunner(InstallConfig config, PythonHandle pythonHandle, PluginLog log) {
-        this.log = log;
+    BinaryRunner(
+            InstallConfig config,
+            FileCopier fileCopier,
+            FileDownloader fileDownloader,
+            PythonHandle pythonHandle,
+            PluginLog log
+    ) {
         this.config = config;
+        this.fileCopier = fileCopier;
+        this.fileDownloader = fileDownloader;
         this.pythonHandle = pythonHandle;
+        this.log = log;
     }
 
-    private File getInstallDirectory() {
-        File installDirectory = new File(config.getInstallDirectory(), INSTALL_PATH);
-        if (!installDirectory.exists()) {
-            log.debug("Creating install directory " + installDirectory + ".");
-            installDirectory.mkdirs();
+    public BinaryRunner setVersion(String version) {
+        this.version = version;
+        return this;
+    }
+
+    public BinaryRunner setDownloadRoot(String downloadRoot) {
+        this.downloadRoot = downloadRoot;
+        return this;
+    }
+
+    public void run(boolean allFiles, String[] hookIds) throws InstallationException {
+        try {
+            BinaryInstaller binaryInstaller = new BinaryInstaller(
+                    config,
+                    fileCopier,
+                    fileDownloader,
+                    pythonHandle,
+                    log
+            );
+            binaryInstaller.setVersion(version).setDownloadRoot(downloadRoot);
+
+            File setupFile = binaryInstaller.ensureSetupFileAvailable();
+            File precommitRoot = PrecommitProjectRoot.resolve(config.getWorkingDirectory());
+            pythonHandle.runPrecommit(setupFile, precommitRoot, allFiles, hookIds);
+        } catch (PythonException e) {
+            throw new InstallationException("pre-commit run failed", e);
         }
-        return installDirectory;
     }
 }

@@ -4,6 +4,7 @@ import io.github.osbeorn.maven.plugin.precommit.lib.BinaryInstaller;
 import io.github.osbeorn.maven.plugin.precommit.lib.InstallationException;
 import io.github.osbeorn.maven.plugin.precommit.lib.PluginFactory;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -42,7 +43,7 @@ public class InstallMojo extends AbstractPrecommitMojo {
     private boolean skip;
 
     @Override
-    public void execute(PluginFactory pluginFactory) throws MojoExecutionException {
+    public void execute(PluginFactory pluginFactory) throws MojoExecutionException, MojoFailureException {
         try {
             pluginFactory.getBinaryInstaller()
                     .setDownloadRoot(downloadRoot)

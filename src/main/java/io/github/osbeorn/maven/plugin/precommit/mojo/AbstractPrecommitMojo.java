@@ -43,6 +43,14 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
     @Parameter(defaultValue = "${basedir}/.pre-commit-files", property = "installDirectory")
     protected File installDirectory;
 
+    /**
+     * Comma-separated host names for which TLS certificate validation is skipped when downloading
+     * the pre-commit bundle (exact match only). Prefer fixing JDK trust or using {@code http://}
+     * on internal mirrors when possible.
+     */
+    @Parameter(property = "trustedInsecureHosts", defaultValue = "")
+    private String trustedInsecureHosts;
+
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
     private RepositorySystemSession repositorySystemSession;
 
@@ -89,7 +97,8 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
                         workingDirectory,
                         installDirectory,
                         new RepositoryCacheResolver(repositorySystemSession),
-                        new MavenPluginLog(getLog())
+                        new MavenPluginLog(getLog()),
+                        trustedInsecureHosts
                 )
         );
     }

@@ -5,9 +5,18 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.ssl.SSLContextBuilder;
 
+import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -15,6 +24,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.HashSet;
+import java.util.Set;
 
 final class DownloadException extends Exception {
     public DownloadException(String message) {
@@ -36,9 +47,18 @@ final class DefaultFileDownloader implements FileDownloader {
     private static final long INITIAL_BACKOFF_MS = 500L;
 
     private final PluginLog log;
+    private final TrustedInsecureHosts trustedInsecureHosts;
+    private final Set<String> insecureSslWarningLogged = new HashSet<>();
 
     DefaultFileDownloader(PluginLog log) {
+        this(log, TrustedInsecureHosts.empty());
+    }
+
+    DefaultFileDownloader(PluginLog log, TrustedInsecureHosts trustedInsecureHosts) {
         this.log = log;
+        this.trustedInsecureHosts = trustedInsecureHosts == null
+                ? TrustedInsecureHosts.empty()
+                : trustedInsecureHosts;
     }
 
     @Override
@@ -88,7 +108,8 @@ final class DefaultFileDownloader implements FileDownloader {
     }
 
     private void downloadOnce(String downloadUrl, String destination) throws DownloadException {
-        try (CloseableHttpClient client = buildHttpClient(null)) {
+        String host = hostFromUrl(downloadUrl);
+        try (CloseableHttpClient client = buildHttpClient(host, null)) {
             try (CloseableHttpResponse response = client.execute(new HttpGet(downloadUrl))) {
                 int statusCode = response.getStatusLine().getStatusCode();
 
@@ -107,12 +128,60 @@ final class DefaultFileDownloader implements FileDownloader {
         }
     }
 
-    private CloseableHttpClient buildHttpClient(CredentialsProvider credentialsProvider) {
+    private CloseableHttpClient buildHttpClient(String host, CredentialsProvider credentialsProvider)
+            throws DownloadException {
+        if (host != null && trustedInsecureHosts.matches(host)) {
+            logInsecureSslWarning(host);
+            try {
+                SSLContext sslContext = SSLContextBuilder.create()
+                        .loadTrustMaterial(null, (chain, authType) -> true)
+                        .build();
+                SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(
+                        sslContext,
+                        NoopHostnameVerifier.INSTANCE
+                );
+                Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
+                        .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                        .register("https", sslSocketFactory)
+                        .build();
+                PoolingHttpClientConnectionManager connectionManager =
+                        new PoolingHttpClientConnectionManager(registry);
+                return HttpClients.custom()
+                        .disableContentCompression()
+                        .useSystemProperties()
+                        .setConnectionManager(connectionManager)
+                        .setDefaultCredentialsProvider(credentialsProvider)
+                        .build();
+            } catch (Exception e) {
+                throw new DownloadException("Could not configure insecure SSL for host " + host, e);
+            }
+        }
+
         return HttpClients.custom()
                 .disableContentCompression()
                 .useSystemProperties()
                 .setDefaultCredentialsProvider(credentialsProvider)
                 .build();
+    }
+
+    private void logInsecureSslWarning(String host) {
+        synchronized (insecureSslWarningLogged) {
+            if (insecureSslWarningLogged.add(host)) {
+                log.warn(
+                        "SSL certificate validation is disabled for download host "
+                                + host
+                                + " (trustedInsecureHosts). Use only for trusted internal mirrors."
+                );
+            }
+        }
+    }
+
+    private static String hostFromUrl(String downloadUrl) throws DownloadException {
+        try {
+            return new URI(FilenameUtils.separatorsToUnix(downloadUrl)).getHost();
+        } catch (URISyntaxException e) {
+            throw new DownloadException("Invalid download URL " + downloadUrl, e);
+        }
     }
 
     private static int maxAttempts() {

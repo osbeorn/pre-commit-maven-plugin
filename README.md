@@ -66,6 +66,7 @@ See [supported Git hooks](https://pre-commit.com/#supported-git-hooks).
 |-----------|----------|---------|-------------|
 | `precommitVersion` | `precommitVersion` | *(required)* | pre-commit release tag (usually with `v`, e.g. `v3.4.0`). |
 | `downloadRoot` | `downloadRoot` | GitHub releases URL | Base URL for the `.pyz` download (use an internal mirror if needed). |
+| `trustedInsecureHosts` | `trustedInsecureHosts` | *(empty)* | Comma-separated hosts for which TLS certificate validation is skipped on downloads (**exact** host match only). Use for internal HTTPS mirrors when the JDK trust store is outdated; logs a warning when used. |
 | `workingDirectory` | `workingDirectory` | `${basedir}` | Starting directory when searching for `.git` and `.pre-commit-config.yaml`. |
 | `installDirectory` | `installDirectory` | `${basedir}/.pre-commit-files` | Where the extracted pre-commit bundle is stored locally. |
 | `hookTypes` | `hookTypes` | `pre-commit` | Hook types passed to `pre-commit install --hook-type`. |

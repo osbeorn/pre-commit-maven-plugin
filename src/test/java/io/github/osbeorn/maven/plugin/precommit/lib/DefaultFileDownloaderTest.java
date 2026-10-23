@@ -25,7 +25,7 @@ import static org.junit.Assert.fail;
 public class DefaultFileDownloaderTest {
 
     @Rule
-    public WireMockRule wireMockRule = new WireMockRule(wireMockConfig().dynamicPort());
+    public WireMockRule wireMockRule = new WireMockRule(wireMockConfig().dynamicPort().dynamicHttpsPort());
 
     @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -87,6 +87,21 @@ public class DefaultFileDownloaderTest {
     }
 
     @Test
+    public void downloadsOverHttpsWhenHostIsTrustedInsecure() throws Exception {
+        stubFor(get(urlEqualTo("/secure.pyz"))
+                .willReturn(aResponse().withStatus(200).withBody("secure-payload")));
+
+        File destination = temporaryFolder.newFile("secure.pyz");
+        DefaultFileDownloader downloader = new DefaultFileDownloader(
+                PluginLogs.silent(),
+                TrustedInsecureHosts.parse("localhost")
+        );
+        downloader.download(httpsBaseUrl() + "/secure.pyz", destination.getPath());
+
+        assertEquals("secure-payload", new String(Files.readAllBytes(destination.toPath()), StandardCharsets.UTF_8));
+    }
+
+    @Test
     public void doesNotRetryPermanentClientErrors() throws Exception {
         System.setProperty("precommit.download.maxAttempts", "3");
 
@@ -108,5 +123,9 @@ public class DefaultFileDownloaderTest {
 
     private String baseUrl() {
         return "http://localhost:" + wireMockRule.port();
+    }
+
+    private String httpsBaseUrl() {
+        return "https://localhost:" + wireMockRule.httpsPort();
     }
 }

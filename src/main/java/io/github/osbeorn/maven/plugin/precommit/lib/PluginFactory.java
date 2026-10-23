@@ -9,19 +9,36 @@ public final class PluginFactory {
     private final File installDirectory;
     private final CacheResolver cacheResolver;
     private final PluginLog log;
+    private final TrustedInsecureHosts trustedInsecureHosts;
 
-    public PluginFactory(File workingDirectory, File installDirectory, CacheResolver cacheResolver, PluginLog log) {
+    public PluginFactory(
+            File workingDirectory,
+            File installDirectory,
+            CacheResolver cacheResolver,
+            PluginLog log
+    ) {
+        this(workingDirectory, installDirectory, cacheResolver, log, null);
+    }
+
+    public PluginFactory(
+            File workingDirectory,
+            File installDirectory,
+            CacheResolver cacheResolver,
+            PluginLog log,
+            String trustedInsecureHosts
+    ) {
         this.workingDirectory = workingDirectory;
         this.installDirectory = installDirectory;
         this.cacheResolver = cacheResolver;
         this.log = log == null ? PluginLogs.silent() : log;
+        this.trustedInsecureHosts = TrustedInsecureHosts.parse(trustedInsecureHosts);
     }
 
     public BinaryInstaller getBinaryInstaller() {
         return new BinaryInstaller(
                 getInstallConfig(),
                 new DefaultFileCopier(),
-                new DefaultFileDownloader(log),
+                new DefaultFileDownloader(log, trustedInsecureHosts),
                 new DefaultPythonHandle(log),
                 log
         );
@@ -31,7 +48,7 @@ public final class PluginFactory {
         return new BinaryRunner(
                 getInstallConfig(),
                 new DefaultFileCopier(),
-                new DefaultFileDownloader(log),
+                new DefaultFileDownloader(log, trustedInsecureHosts),
                 new DefaultPythonHandle(log),
                 log
         );

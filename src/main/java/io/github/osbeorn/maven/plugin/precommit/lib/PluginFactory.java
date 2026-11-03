@@ -10,6 +10,7 @@ public final class PluginFactory {
     private final CacheResolver cacheResolver;
     private final PluginLog log;
     private final TrustedInsecureHosts trustedInsecureHosts;
+    private final DownloadHttpCredentials downloadCredentials;
 
     public PluginFactory(
             File workingDirectory,
@@ -17,7 +18,7 @@ public final class PluginFactory {
             CacheResolver cacheResolver,
             PluginLog log
     ) {
-        this(workingDirectory, installDirectory, cacheResolver, log, null);
+        this(workingDirectory, installDirectory, cacheResolver, log, null, null);
     }
 
     public PluginFactory(
@@ -27,18 +28,32 @@ public final class PluginFactory {
             PluginLog log,
             String trustedInsecureHosts
     ) {
+        this(workingDirectory, installDirectory, cacheResolver, log, trustedInsecureHosts, null);
+    }
+
+    public PluginFactory(
+            File workingDirectory,
+            File installDirectory,
+            CacheResolver cacheResolver,
+            PluginLog log,
+            String trustedInsecureHosts,
+            DownloadHttpCredentials downloadCredentials
+    ) {
         this.workingDirectory = workingDirectory;
         this.installDirectory = installDirectory;
         this.cacheResolver = cacheResolver;
         this.log = log == null ? PluginLogs.silent() : log;
         this.trustedInsecureHosts = TrustedInsecureHosts.parse(trustedInsecureHosts);
+        this.downloadCredentials = downloadCredentials == null
+                ? DownloadHttpCredentials.none()
+                : downloadCredentials;
     }
 
     public BinaryInstaller getBinaryInstaller() {
         return new BinaryInstaller(
                 getInstallConfig(),
                 new DefaultFileCopier(),
-                new DefaultFileDownloader(log, trustedInsecureHosts),
+                new DefaultFileDownloader(log, trustedInsecureHosts, downloadCredentials),
                 new DefaultPythonHandle(log),
                 log
         );
@@ -48,7 +63,7 @@ public final class PluginFactory {
         return new BinaryRunner(
                 getInstallConfig(),
                 new DefaultFileCopier(),
-                new DefaultFileDownloader(log, trustedInsecureHosts),
+                new DefaultFileDownloader(log, trustedInsecureHosts, downloadCredentials),
                 new DefaultPythonHandle(log),
                 log
         );

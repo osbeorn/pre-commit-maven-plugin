@@ -2,15 +2,23 @@ package io.github.osbeorn.maven.plugin.precommit.lib;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.AuthCache;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
@@ -48,17 +56,29 @@ final class DefaultFileDownloader implements FileDownloader {
 
     private final PluginLog log;
     private final TrustedInsecureHosts trustedInsecureHosts;
+    private final DownloadHttpCredentials downloadCredentials;
     private final Set<String> insecureSslWarningLogged = new HashSet<>();
 
     DefaultFileDownloader(PluginLog log) {
-        this(log, TrustedInsecureHosts.empty());
+        this(log, TrustedInsecureHosts.empty(), DownloadHttpCredentials.none());
     }
 
     DefaultFileDownloader(PluginLog log, TrustedInsecureHosts trustedInsecureHosts) {
+        this(log, trustedInsecureHosts, DownloadHttpCredentials.none());
+    }
+
+    DefaultFileDownloader(
+            PluginLog log,
+            TrustedInsecureHosts trustedInsecureHosts,
+            DownloadHttpCredentials downloadCredentials
+    ) {
         this.log = log;
         this.trustedInsecureHosts = trustedInsecureHosts == null
                 ? TrustedInsecureHosts.empty()
                 : trustedInsecureHosts;
+        this.downloadCredentials = downloadCredentials == null
+                ? DownloadHttpCredentials.none()
+                : downloadCredentials;
     }
 
     @Override
@@ -108,9 +128,13 @@ final class DefaultFileDownloader implements FileDownloader {
     }
 
     private void downloadOnce(String downloadUrl, String destination) throws DownloadException {
-        String host = hostFromUrl(downloadUrl);
-        try (CloseableHttpClient client = buildHttpClient(host, null)) {
-            try (CloseableHttpResponse response = client.execute(new HttpGet(downloadUrl))) {
+        URI uri = uriFromUrl(downloadUrl);
+        String host = uri.getHost();
+        CredentialsProvider credentialsProvider = buildCredentialsProvider(uri);
+        HttpClientContext context = buildContext(uri, credentialsProvider);
+
+        try (CloseableHttpClient client = buildHttpClient(host, credentialsProvider)) {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(downloadUrl), context)) {
                 int statusCode = response.getStatusLine().getStatusCode();
 
                 if (statusCode != 200) {
@@ -126,6 +150,45 @@ final class DefaultFileDownloader implements FileDownloader {
         } catch (IOException e) {
             throw new DownloadException("Could not download " + downloadUrl, e);
         }
+    }
+
+    private CredentialsProvider buildCredentialsProvider(URI uri) {
+        if (!downloadCredentials.isPresent()) {
+            return null;
+        }
+        BasicCredentialsProvider provider = new BasicCredentialsProvider();
+        int port = effectivePort(uri);
+        provider.setCredentials(
+                new AuthScope(uri.getHost(), port, AuthScope.ANY_REALM),
+                new UsernamePasswordCredentials(
+                        downloadCredentials.getUsername(),
+                        downloadCredentials.getPassword()
+                )
+        );
+        return provider;
+    }
+
+    private HttpClientContext buildContext(URI uri, CredentialsProvider credentialsProvider) {
+        HttpClientContext context = HttpClientContext.create();
+        if (credentialsProvider == null || !downloadCredentials.isPresent()) {
+            return context;
+        }
+        HttpHost target = new HttpHost(uri.getHost(), effectivePort(uri), uri.getScheme());
+        AuthCache authCache = new BasicAuthCache();
+        authCache.put(target, new BasicScheme());
+        context.setAuthCache(authCache);
+        context.setCredentialsProvider(credentialsProvider);
+        return context;
+    }
+
+    private static int effectivePort(URI uri) {
+        if (uri.getPort() != -1) {
+            return uri.getPort();
+        }
+        if ("https".equalsIgnoreCase(uri.getScheme())) {
+            return 443;
+        }
+        return 80;
     }
 
     private CloseableHttpClient buildHttpClient(String host, CredentialsProvider credentialsProvider)
@@ -176,9 +239,9 @@ final class DefaultFileDownloader implements FileDownloader {
         }
     }
 
-    private static String hostFromUrl(String downloadUrl) throws DownloadException {
+    private static URI uriFromUrl(String downloadUrl) throws DownloadException {
         try {
-            return new URI(FilenameUtils.separatorsToUnix(downloadUrl)).getHost();
+            return new URI(FilenameUtils.separatorsToUnix(downloadUrl));
         } catch (URISyntaxException e) {
             throw new DownloadException("Invalid download URL " + downloadUrl, e);
         }

@@ -1,13 +1,18 @@
 package io.github.osbeorn.maven.plugin.precommit.mojo;
 
+import io.github.osbeorn.maven.plugin.precommit.lib.DownloadHttpCredentials;
+import io.github.osbeorn.maven.plugin.precommit.lib.DownloadServerCredentials;
 import io.github.osbeorn.maven.plugin.precommit.lib.PluginFactory;
 import io.github.osbeorn.maven.plugin.precommit.lib.PrecommitProjectRoot;
 import io.github.osbeorn.maven.plugin.precommit.lib.RepositoryCacheResolver;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Settings;
+import org.apache.maven.settings.crypto.SettingsDecrypter;
 import org.eclipse.aether.RepositorySystemSession;
 
 import java.io.File;
@@ -51,6 +56,19 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
     @Parameter(property = "trustedInsecureHosts", defaultValue = "")
     private String trustedInsecureHosts;
 
+    /**
+     * {@code settings.xml} server {@code id} whose username/password are used for HTTP Basic auth when
+     * downloading from {@code downloadRoot} (e.g. authenticated Nexus raw repository).
+     */
+    @Parameter(property = "precommit.download.serverId", defaultValue = "")
+    private String downloadServerId;
+
+    @Parameter(defaultValue = "${settings}", readonly = true)
+    private Settings settings;
+
+    @Component
+    private SettingsDecrypter settingsDecrypter;
+
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
     private RepositorySystemSession repositorySystemSession;
 
@@ -92,13 +110,21 @@ public abstract class AbstractPrecommitMojo extends AbstractMojo {
             installDirectory = workingDirectory;
         }
 
+        DownloadHttpCredentials downloadCredentials = DownloadServerCredentials.resolve(
+                downloadServerId,
+                settings,
+                settingsDecrypter,
+                new MavenPluginLog(getLog())
+        );
+
         execute(
                 new PluginFactory(
                         workingDirectory,
                         installDirectory,
                         new RepositoryCacheResolver(repositorySystemSession),
                         new MavenPluginLog(getLog()),
-                        trustedInsecureHosts
+                        trustedInsecureHosts,
+                        downloadCredentials
                 )
         );
     }

@@ -87,6 +87,23 @@ public class DefaultFileDownloaderTest {
     }
 
     @Test
+    public void downloadsWithHttpBasicCredentials() throws Exception {
+        stubFor(get(urlEqualTo("/auth.pyz"))
+                .withBasicAuth("mirror", "s3cret")
+                .willReturn(aResponse().withStatus(200).withBody("authenticated")));
+
+        File destination = temporaryFolder.newFile("auth.pyz");
+        DefaultFileDownloader downloader = new DefaultFileDownloader(
+                PluginLogs.silent(),
+                TrustedInsecureHosts.empty(),
+                DownloadHttpCredentials.of("mirror", "s3cret")
+        );
+        downloader.download(baseUrl() + "/auth.pyz", destination.getPath());
+
+        assertEquals("authenticated", new String(Files.readAllBytes(destination.toPath()), StandardCharsets.UTF_8));
+    }
+
+    @Test
     public void downloadsOverHttpsWhenHostIsTrustedInsecure() throws Exception {
         stubFor(get(urlEqualTo("/secure.pyz"))
                 .willReturn(aResponse().withStatus(200).withBody("secure-payload")));
